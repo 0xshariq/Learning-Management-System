@@ -17,7 +17,7 @@ const teacherSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-// Create the Teacher model
+// Create the Teacher model - Fix the model definition to prevent errors
 export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", teacherSchema)
 
 // Zod validation schema

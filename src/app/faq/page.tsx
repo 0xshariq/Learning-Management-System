@@ -62,34 +62,33 @@ export default function FAQPage() {
   }
 
   return (
-    <div className="container max-w-4xl py-12">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Frequently Asked Questions</h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-          Find answers to common questions about our learning platform. Can't find what you're looking for? Try
-          generating new questions or contact our support team.
-        </p>
-        <Button onClick={generateNewFaqs} disabled={loading} className="flex items-center gap-2">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Generate New Questions
-        </Button>
-      </div>
+    <div className="flex justify-center items-center min-h-screen py-12">
+      <div className="container max-w-4xl px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Frequently Asked Questions</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+            Find answers to common questions about our learning platform. Can't find what you're looking for? Try
+            generating new questions or contact our support team.
+          </p>
+          <Button onClick={generateNewFaqs} disabled={loading} className="flex items-center gap-2 mx-auto">
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Generate New Questions
+          </Button>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Common Questions</CardTitle>
-          <CardDescription>Expand the questions below to see the answers</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full">
-            {loading
-              ? // Show skeletons while loading
-                Array(5)
-                  .fill(0)
-                  .map(() => {
-                    const uniqueKey = crypto.randomUUID()
-                    return (
-                      <AccordionItem key={uniqueKey} value={uniqueKey}>
+        <Card className="max-w-3xl mx-auto">
+          <CardHeader>
+            <CardTitle>Common Questions</CardTitle>
+            <CardDescription>Expand the questions below to see the answers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {loading
+                ? // Show skeletons while loading
+                  Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <AccordionItem key={`skeleton-${crypto.randomUUID()}`} value={`skeleton-${crypto.randomUUID()}`}>
                         <AccordionTrigger className="py-4">
                           <Skeleton className="h-6 w-full max-w-[300px]" />
                         </AccordionTrigger>
@@ -97,19 +96,19 @@ export default function FAQPage() {
                           <Skeleton className="h-20 w-full" />
                         </AccordionContent>
                       </AccordionItem>
-                    )
-                  })
-              : faqs.map((faq) => (
-                  <AccordionItem key={faq.question} value={faq.question}>
-                    <AccordionTrigger>{faq.question}</AccordionTrigger>
-                    <AccordionContent>
-                      <p className="text-muted-foreground">{faq.answer}</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-          </Accordion>
-        </CardContent>
-      </Card>
+                    ))
+                : faqs.map((faq) => (
+                    <AccordionItem key={faq.question} value={faq.question}>
+                      <AccordionTrigger>{faq.question}</AccordionTrigger>
+                      <AccordionContent>
+                        <p className="text-muted-foreground">{faq.answer}</p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

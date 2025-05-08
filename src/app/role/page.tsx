@@ -50,8 +50,8 @@ export default function RolePage() {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="container max-w-md py-12">
+    <div className="flex justify-center items-center min-h-screen py-12">
+      <div className="container max-w-md px-4">
         <Tabs defaultValue="signin" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -101,7 +101,7 @@ export default function RolePage() {
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-muted-foreground">
                   Don't have an account?{" "}
-                  <Button variant="link" onClick={() => setActiveTab("signup")} className="p-0 h-auto text-primary">
+                  <Button onClick={() => setActiveTab("signup")} className="text-primary underline cursor-pointer">
                     Sign up
                   </Button>
                 </p>
@@ -155,7 +155,7 @@ export default function RolePage() {
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
-                  <Button variant="link" onClick={() => setActiveTab("signin")} className="p-0 h-auto text-primary">
+                  <Button onClick={() => setActiveTab("signin")} className="text-primary underline cursor-pointer">
                     Sign in
                   </Button>
                 </p>
