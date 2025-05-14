@@ -15,12 +15,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { studentValidationSchema } from "@/models/student"
 
-// Extract just the email and password fields for signin
+// Define a simple schema for sign-in without relying on the model schema
 const signInSchema = z.object({
-  email: studentValidationSchema.shape.email,
-  password: studentValidationSchema.shape.password,
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(1, { message: "Password is required" }),
 })
 
 type SignInFormValues = z.infer<typeof signInSchema>

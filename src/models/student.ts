@@ -16,7 +16,8 @@ const studentSchema = new mongoose.Schema(
 )
 
 // Create the Student model - Fix the model definition to prevent errors
-export const Student = mongoose.models.Student || mongoose.model("Student", studentSchema)
+export const Student =
+  mongoose.models?.Student ? mongoose.models.Student : mongoose.model("Student", studentSchema)
 
 // Zod validation schema
 export const studentValidationSchema = z.object({

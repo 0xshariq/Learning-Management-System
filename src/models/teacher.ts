@@ -18,7 +18,8 @@ const teacherSchema = new mongoose.Schema(
 )
 
 // Create the Teacher model - Fix the model definition to prevent errors
-export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", teacherSchema)
+export const Teacher =
+  mongoose.models?.Teacher ? mongoose.models.Teacher : mongoose.model("Teacher", teacherSchema)
 
 // Zod validation schema
 export const teacherValidationSchema = z.object({

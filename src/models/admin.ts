@@ -11,8 +11,9 @@ const adminSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-// Create the Admin model - Fix the model definition to prevent errors
-export const Admin = mongoose.models.Admin || mongoose.model("Admin", adminSchema)
+// Create the Admin model - Fix the model definition to prevent errors by checking if mongoose.models is defined
+export const Admin =
+  mongoose.models?.Admin ? mongoose.models.Admin : mongoose.model("Admin", adminSchema)
 
 // Zod validation schema
 export const adminValidationSchema = z.object({
