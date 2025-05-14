@@ -194,7 +194,7 @@ export default async function AdminDashboard() {
             </div>
 
             <div className="mt-4 text-center">
-              <Link href="/admin/courses">
+              <Link href="/courses/all">
                 <Button variant="outline">View All Courses</Button>
               </Link>
             </div>
