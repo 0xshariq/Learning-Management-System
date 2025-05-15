@@ -1,114 +1,145 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw } from "lucide-react"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { FadeIn, SlideIn, StaggerChildren } from "@/components/animations";
+import { useCallback } from "react";
 
 interface FAQ {
-  question: string
-  answer: string
+  question: string;
+  answer: string;
 }
 
-// Initial FAQs to show while loading
-const initialFaqs: FAQ[] = [
-  {
-    question: "How do I enroll in a course?",
-    answer:
-      "To enroll in a course, navigate to the course page and click the 'Enroll' button. You may need to complete the payment process if it's a paid course.",
-  },
-  {
-    question: "Can I access courses on mobile devices?",
-    answer:
-      "Yes, our platform is fully responsive and works on all devices including smartphones and tablets. You can learn on the go!",
-  },
-  {
-    question: "How do I become a teacher on the platform?",
-    answer:
-      "To become a teacher, sign up for a teacher account and complete your profile. You'll need to provide information about your expertise and the courses you plan to teach.",
-  },
-  {
-    question: "What payment methods are accepted?",
-    answer:
-      "We accept credit/debit cards, PayPal, and bank transfers. All payments are processed securely through our payment gateway.",
-  },
-  {
-    question: "Can I get a refund if I'm not satisfied with a course?",
-    answer:
-      "Yes, we offer a 30-day money-back guarantee for most courses. Please check the specific course refund policy before enrolling.",
-  },
-]
-
 export default function FAQPage() {
-  const [faqs, setFaqs] = useState<FAQ[]>(initialFaqs)
-  const [loading, setLoading] = useState(false)
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const generateNewFaqs = async () => {
-    setLoading(true)
+
+  const fetchFAQs = useCallback(async () => {
     try {
-      const response = await fetch("/api/generate-faqs")
-      if (!response.ok) throw new Error("Failed to generate FAQs")
+      setRefreshing(true);
+      setError(null);
 
-      const data = await response.json()
-      setFaqs(data.faqs)
-    } catch (error) {
-      console.error("Error generating FAQs:", error)
-      // Keep the current FAQs if there's an error
+      const response = await fetch("/api/generate-faqs");
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch FAQs: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.faqs || !Array.isArray(data.faqs)) {
+        throw new Error("Invalid response format");
+      }
+
+      setFaqs(data.faqs);
+
+      // If using static FAQs due to an error, show the error
+      if (data.source === "static" && data.error) {
+        setError(`Using default FAQs: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("Error fetching FAQs:", err);
+      setError(err instanceof Error ? err.message : "Failed to load FAQs");
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchFAQs();
+  }, [fetchFAQs]);
 
   return (
-    <div className="flex justify-center items-center min-h-screen py-12">
-      <div className="container max-w-4xl px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Frequently Asked Questions</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-            Find answers to common questions about our learning platform. Can't find what you're looking for? Try
-            generating new questions or contact our support team.
+    <div className="container max-w-4xl py-12">
+      <FadeIn>
+        <div className="flex flex-col items-center text-center mb-12">
+          <h1 className="text-4xl font-bold tracking-tight mb-4">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Find answers to common questions about our learning platform. If you
+            can't find what you're looking for, please contact our support team.
           </p>
-          <Button onClick={generateNewFaqs} disabled={loading} className="flex items-center gap-2 mx-auto">
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Generate New Questions
-          </Button>
         </div>
+      </FadeIn>
 
-        <Card className="max-w-3xl mx-auto">
-          <CardHeader>
-            <CardTitle>Common Questions</CardTitle>
-            <CardDescription>Expand the questions below to see the answers</CardDescription>
+      <SlideIn>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>FAQs</CardTitle>
+              <CardDescription>
+                Common questions about our platform
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchFAQs}
+              disabled={loading || refreshing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              <span>Refresh Questions</span>
+            </Button>
           </CardHeader>
           <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {loading
-                ? // Show skeletons while loading
-                  Array(5)
-                    .fill(0)
-                    .map((_, i) => (
-                      <AccordionItem key={`skeleton-${crypto.randomUUID()}`} value={`skeleton-${crypto.randomUUID()}`}>
-                        <AccordionTrigger className="py-4">
-                          <Skeleton className="h-6 w-full max-w-[300px]" />
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <Skeleton className="h-20 w-full" />
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))
-                : faqs.map((faq) => (
+            {error && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-6 bg-gray-200 rounded animate-pulse w-3/4" />
+                    <div className="h-4 bg-gray-100 rounded animate-pulse w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <StaggerChildren>
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((faq) => (
                     <AccordionItem key={faq.question} value={faq.question}>
-                      <AccordionTrigger>{faq.question}</AccordionTrigger>
+                      <AccordionTrigger className="text-left font-medium">
+                        {faq.question}
+                      </AccordionTrigger>
                       <AccordionContent>
                         <p className="text-muted-foreground">{faq.answer}</p>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
-            </Accordion>
+                </Accordion>
+              </StaggerChildren>
+            )}
           </CardContent>
         </Card>
-      </div>
+      </SlideIn>
     </div>
-  )
+  );
 }

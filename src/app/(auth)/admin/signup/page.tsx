@@ -13,11 +13,13 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { ShieldCheck } from "lucide-react"
-import { adminValidationSchema } from "@/models/admin"
 
 // Create a signup schema that includes password confirmation
-const signUpSchema = adminValidationSchema
-  .extend({
+const signUpSchema = z
+  .object({
+    name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+    email: z.string().email({ message: "Please enter a valid email address" }),
+    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

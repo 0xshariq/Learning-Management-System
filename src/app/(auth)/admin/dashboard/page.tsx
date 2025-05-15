@@ -48,16 +48,21 @@ export default async function AdminDashboard() {
   // Get total revenue
   const payments = await Payment.find({ status: "completed" }).lean();
   const totalRevenue = payments.reduce(
-    (sum: number, payment: any) => sum + (payment.amount || 0),
+    (sum: number, payment: { amount?: number }) => sum + (payment.amount || 0),
     0
   );
 
   // Get recent courses
-  const recentCourses = await Course.find()
+  const recentCourses = (await Course.find()
     .sort({ createdAt: -1 })
     .limit(5)
     .populate("teacher", "name")
-    .lean();
+    .lean()) as unknown as Array<{
+      _id: string | { toString(): string },
+      name: string,
+      teacher?: { name?: string },
+      createdAt: string | Date
+    }>;
 
   // Get recent users (both students and teachers)
   const recentStudents = await Student.find()
@@ -170,9 +175,14 @@ export default async function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentCourses.map((course: any) => (
+              {recentCourses.map((course: {
+                _id: string | { toString(): string },
+                name: string,
+                teacher?: { name?: string },
+                createdAt: string | Date
+              }) => (
                 <div
-                  key={course._id.toString()}
+                  key={typeof course._id === "string" ? course._id : course._id.toString()}
                   className="flex justify-between items-center border-b pb-2"
                 >
                   <div>
@@ -210,9 +220,15 @@ export default async function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentUsers.map((user: any) => (
+              {recentUsers.map((user: {
+                _id: string | { toString(): string },
+                name: string,
+                email: string,
+                createdAt: string | Date,
+                purchasedCourses?: unknown
+              }) => (
                 <div
-                  key={user._id.toString()}
+                  key={typeof user._id === "string" ? user._id : user._id.toString()}
                   className="flex justify-between items-center border-b pb-2"
                 >
                   <div>
@@ -247,20 +263,20 @@ export default async function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link href="/admin/courses" passHref legacyBehavior>
-                <Button as="a" variant="outline" className="w-full">
+              <Link href="/admin/courses">
+                <Button variant="outline" className="w-full">
                   <BookOpen className="mr-2 h-4 w-4" />
                   Manage Courses
                 </Button>
               </Link>
-              <Link href="/admin/users" passHref legacyBehavior>
-                <Button as="a" variant="outline" className="w-full">
+              <Link href="/admin/users">
+                <Button variant="outline" className="w-full">
                   <Users className="mr-2 h-4 w-4" />
                   Manage Users
                 </Button>
               </Link>
-              <Link href="/admin/payments" passHref legacyBehavior>
-                <Button as="a" variant="outline" className="w-full">
+              <Link href="/admin/payments">
+                <Button variant="outline" className="w-full">
                   <DollarSign className="mr-2 h-4 w-4" />
                   View Payments
                 </Button>

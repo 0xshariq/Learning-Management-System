@@ -2,67 +2,71 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { z } from "zod"
-import { useForm } from "react-hook-form"
+import { useSession } from "next-auth/react"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
 
-// Create a schema for course creation
-const courseSchema = z.object({
-  name: z.string().min(3, "Course name must be at least 3 characters"),
-  description: z.string().min(100, "Description must be at least 100 characters"),
-  syllabus: z.string().optional(),
-  price: z.string().refine((val) => !Number.isNaN(Number(val)) && Number(val) >= 0, {
-    message: "Price must be a valid number and cannot be negative",
+const formSchema = z.object({
+  title: z.string().min(5, {
+    message: "Title must be at least 5 characters.",
   }),
-  duration: z.string().min(2, "Duration must be specified"),
-  imageUrl: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  description: z.string().min(20, {
+    message: "Description must be at least 20 characters.",
+  }),
+  price: z.coerce.number().min(0, {
+    message: "Price must be a positive number.",
+  }),
+  category: z.string().min(1, {
+    message: "Please select a category.",
+  }),
+  level: z.string().min(1, {
+    message: "Please select a difficulty level.",
+  }),
+  thumbnail: z
+    .string()
+    .url({
+      message: "Please enter a valid URL for the thumbnail.",
+    })
+    .optional(),
 })
 
-type CourseFormValues = z.infer<typeof courseSchema>
-
-interface CourseResponse {
-  message: string
-  course: {
-    _id: string
-    name: string
-    description: string
-    syllabus?: string
-    price: number
-    duration: string
-    teacher: string
-    imageUrl?: string
-    isPublished: boolean
-    createdAt: string
-    updatedAt: string
-  }
-}
-
 export default function CreateCoursePage() {
+  const { data: session } = useSession()
   const router = useRouter()
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<CourseFormValues>({
-    resolver: zodResolver(courseSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      title: "",
       description: "",
-      syllabus: "",
-      price: "0",
-      duration: "",
-      imageUrl: "",
+      price: 0,
+      category: "",
+      level: "",
+      thumbnail: "https://placehold.co/600x400?text=Course+Thumbnail",
     },
   })
 
-  async function onSubmit(data: CourseFormValues) {
-    setIsLoading(true)
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!session) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be signed in to create a course.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
 
     try {
       const response = await fetch("/api/courses", {
@@ -71,57 +75,55 @@ export default function CreateCoursePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...data,
-          price: Number(data.price),
-          isPublished: false, // Default to unpublished
+          ...values,
+          teacher: session.user?.id,
         }),
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to create course")
+        throw new Error("Failed to create course")
       }
 
-      const courseData: CourseResponse = await response.json()
+      const data = await response.json()
 
       toast({
-        title: "Success",
-        description: "Course created successfully.",
+        title: "Course Created",
+        description: "Your course has been created successfully.",
       })
 
-      // Redirect to the course management page
-      router.push(`/teacher/courses/${courseData.course._id}`)
+      // Redirect to the course page
+      router.push(`/courses/${data.course._id}`)
     } catch (error) {
+      console.error("Error creating course:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description: "Failed to create course. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container py-10">
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl">Create a New Course</CardTitle>
-          <CardDescription>Fill in the details to create your course</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="name"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Name</FormLabel>
+                    <FormLabel>Course Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Complete Web Development Bootcamp" {...field} />
+                      <Input placeholder="Enter course title" {...field} />
                     </FormControl>
-                    <FormDescription>Choose a clear and engaging title for your course.</FormDescription>
+                    <FormDescription>Choose a clear and descriptive title for your course.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -135,33 +137,12 @@ export default function CreateCoursePage() {
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Provide a detailed description of your course..."
-                        className="min-h-[150px]"
+                        placeholder="Describe your course content and what students will learn"
+                        className="min-h-32"
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>
-                      Minimum 100 characters. Explain what students will learn and why they should take your course.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="syllabus"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Syllabus (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Outline the topics covered in your course..."
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>Provide a structured outline of the topics you'll cover.</FormDescription>
+                    <FormDescription>Provide a detailed description of your course.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -173,11 +154,11 @@ export default function CreateCoursePage() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price (₹)</FormLabel>
+                      <FormLabel>Price</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" step="0.01" {...field} />
+                        <Input type="number" min="0" step="0.01" placeholder="0.00" {...field} />
                       </FormControl>
-                      <FormDescription>Set a price for your course in Indian Rupees.</FormDescription>
+                      <FormDescription>Set to 0 for a free course.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -185,14 +166,28 @@ export default function CreateCoursePage() {
 
                 <FormField
                   control={form.control}
-                  name="duration"
+                  name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Duration</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 10 hours, 4 weeks" {...field} />
-                      </FormControl>
-                      <FormDescription>Specify the total duration of your course.</FormDescription>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="programming">Programming</SelectItem>
+                          <SelectItem value="design">Design</SelectItem>
+                          <SelectItem value="business">Business</SelectItem>
+                          <SelectItem value="marketing">Marketing</SelectItem>
+                          <SelectItem value="photography">Photography</SelectItem>
+                          <SelectItem value="music">Music</SelectItem>
+                          <SelectItem value="health">Health & Fitness</SelectItem>
+                          <SelectItem value="language">Language</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -201,12 +196,36 @@ export default function CreateCoursePage() {
 
               <FormField
                 control={form.control}
-                name="imageUrl"
+                name="level"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Image URL (Optional)</FormLabel>
+                    <FormLabel>Difficulty Level</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select difficulty level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="all-levels">All Levels</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="thumbnail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Thumbnail URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} />
+                      <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormDescription>Provide a URL for your course thumbnail image.</FormDescription>
                     <FormMessage />
@@ -214,23 +233,12 @@ export default function CreateCoursePage() {
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Course...
-                  </>
-                ) : (
-                  "Create Course"
-                )}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Course"}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center border-t pt-6">
-          <p className="text-sm text-muted-foreground">
-            You can add videos and more details after creating the course.
-          </p>
-        </CardFooter>
       </Card>
     </div>
   )
