@@ -42,9 +42,10 @@ const formSchema = z.object({
     .url({
       message: "Please enter a valid URL for the thumbnail.",
     })
-    .optional(),
+    .or(z.literal("").transform(() => "")),
   isPublished: z.boolean().default(false),
 })
+type FormSchemaType = z.infer<typeof formSchema>;
 
 export default function CreateCoursePage() {
   const { data: session } = useSession()
@@ -52,7 +53,7 @@ export default function CreateCoursePage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -62,7 +63,7 @@ export default function CreateCoursePage() {
       duration: "",
       category: "",
       level: "",
-      imageUrl: "https://placehold.co/600x400?text=Course+Thumbnail",
+      imageUrl: "",
       isPublished: false,
     },
   })
@@ -87,12 +88,17 @@ export default function CreateCoursePage() {
         },
         body: JSON.stringify({
           ...values,
-          teacher: session.user.id,
+          teacher: session.user?.id,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch {
+          errorData = {}
+        }
         throw new Error(errorData.message || "Failed to create course")
       }
 
@@ -188,7 +194,15 @@ export default function CreateCoursePage() {
                     <FormItem>
                       <FormLabel>Price*</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" step="0.01" placeholder="0.00" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={e => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
+                        />
                       </FormControl>
                       <FormDescription>Set to 0 for a free course.</FormDescription>
                       <FormMessage />
@@ -219,7 +233,7 @@ export default function CreateCoursePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category*</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a category" />
@@ -248,7 +262,7 @@ export default function CreateCoursePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Difficulty Level*</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select difficulty level" />
@@ -274,7 +288,12 @@ export default function CreateCoursePage() {
                   <FormItem>
                     <FormLabel>Course Image URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ""} />
+                      <Input
+                        placeholder="https://example.com/image.jpg"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormDescription>Provide a URL for your course thumbnail image.</FormDescription>
                     <FormMessage />
@@ -291,7 +310,7 @@ export default function CreateCoursePage() {
                       <input
                         type="checkbox"
                         checked={field.value}
-                        onChange={field.onChange}
+                        onChange={e => field.onChange(e.target.checked)}
                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
                     </FormControl>
