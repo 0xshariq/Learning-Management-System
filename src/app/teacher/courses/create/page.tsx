@@ -11,18 +11,25 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { Loader2 } from "lucide-react"
 
 const formSchema = z.object({
-  title: z.string().min(5, {
-    message: "Title must be at least 5 characters.",
+  name: z.string().min(5, {
+    message: "Course name must be at least 5 characters.",
   }),
-  description: z.string().min(20, {
-    message: "Description must be at least 20 characters.",
+  description: z.string().min(100, {
+    message: "Description must be at least 100 characters.",
+  }),
+  syllabus: z.string().min(50, {
+    message: "Syllabus must be at least 50 characters.",
   }),
   price: z.coerce.number().min(0, {
     message: "Price must be a positive number.",
+  }),
+  duration: z.string().min(2, {
+    message: "Duration must be specified (e.g., '4 weeks', '10 hours').",
   }),
   category: z.string().min(1, {
     message: "Please select a category.",
@@ -30,12 +37,13 @@ const formSchema = z.object({
   level: z.string().min(1, {
     message: "Please select a difficulty level.",
   }),
-  thumbnail: z
+  imageUrl: z
     .string()
     .url({
       message: "Please enter a valid URL for the thumbnail.",
     })
     .optional(),
+  isPublished: z.boolean().default(false),
 })
 
 export default function CreateCoursePage() {
@@ -47,12 +55,15 @@ export default function CreateCoursePage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
+      name: "",
       description: "",
+      syllabus: "",
       price: 0,
+      duration: "",
       category: "",
       level: "",
-      thumbnail: "https://placehold.co/600x400?text=Course+Thumbnail",
+      imageUrl: "https://placehold.co/600x400?text=Course+Thumbnail",
+      isPublished: false,
     },
   })
 
@@ -76,12 +87,13 @@ export default function CreateCoursePage() {
         },
         body: JSON.stringify({
           ...values,
-          teacher: session.user?.id,
+          teacher: session.user.id,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create course")
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to create course")
       }
 
       const data = await response.json()
@@ -97,7 +109,7 @@ export default function CreateCoursePage() {
       console.error("Error creating course:", error)
       toast({
         title: "Error",
-        description: "Failed to create course. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create course. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -110,20 +122,21 @@ export default function CreateCoursePage() {
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl">Create a New Course</CardTitle>
+          <CardDescription>Fill in the details to create your course</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="title"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Title</FormLabel>
+                    <FormLabel>Course Name*</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter course title" {...field} />
+                      <Input placeholder="Enter course name" {...field} />
                     </FormControl>
-                    <FormDescription>Choose a clear and descriptive title for your course.</FormDescription>
+                    <FormDescription>Choose a clear and descriptive name for your course.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -134,7 +147,7 @@ export default function CreateCoursePage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Description*</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Describe your course content and what students will learn"
@@ -142,7 +155,26 @@ export default function CreateCoursePage() {
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Provide a detailed description of your course.</FormDescription>
+                    <FormDescription>Minimum 100 characters. Explain what students will learn.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="syllabus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Syllabus*</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Outline the topics and modules covered in your course"
+                        className="min-h-32"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>Minimum 50 characters. List the main topics and modules.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -154,7 +186,7 @@ export default function CreateCoursePage() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price</FormLabel>
+                      <FormLabel>Price*</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" step="0.01" placeholder="0.00" {...field} />
                       </FormControl>
@@ -166,10 +198,27 @@ export default function CreateCoursePage() {
 
                 <FormField
                   control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 4 weeks, 10 hours" {...field} />
+                      </FormControl>
+                      <FormDescription>Specify the total duration of your course.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Category</FormLabel>
+                      <FormLabel>Category*</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -192,38 +241,38 @@ export default function CreateCoursePage() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="level"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Difficulty Level*</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select difficulty level" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                          <SelectItem value="all-levels">All Levels</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <FormField
                 control={form.control}
-                name="level"
+                name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Difficulty Level</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select difficulty level" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                        <SelectItem value="all-levels">All Levels</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="thumbnail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Thumbnail URL</FormLabel>
+                    <FormLabel>Course Image URL</FormLabel>
                     <FormControl>
                       <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ""} />
                     </FormControl>
@@ -233,8 +282,35 @@ export default function CreateCoursePage() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="isPublished"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Publish immediately</FormLabel>
+                      <FormDescription>If unchecked, your course will be saved as a draft.</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Course"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Course...
+                  </>
+                ) : (
+                  "Create Course"
+                )}
               </Button>
             </form>
           </Form>
