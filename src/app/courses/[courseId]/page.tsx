@@ -237,7 +237,6 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold">{course.teacher?.name || "Unknown"}</h3>
-                  <p className="text-muted-foreground">{course.teacher?.email || ""}</p>
                 </div>
               </div>
               <div className="mt-4">
