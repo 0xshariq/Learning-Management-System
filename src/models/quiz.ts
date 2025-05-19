@@ -14,7 +14,7 @@ const quizSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 })
 
-export const Quiz = mongoose.models.Quiz || mongoose.model("Quiz", quizSchema)
+export const Quiz = mongoose.models?.Quiz ? mongoose.models.Quiz : mongoose.model("Quiz", quizSchema)
 
 export const questionValidationSchema = z.object({
   questionText: z.string().min(3, "Question must be at least 3 characters"),

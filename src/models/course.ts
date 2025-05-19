@@ -17,7 +17,7 @@ const courseSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 })
 
-export const Course = mongoose.models.Course || mongoose.model("Course", courseSchema)
+export const Course =  mongoose.models?.Course ? mongoose.models.Course : mongoose.model("Course", courseSchema)
 
 export const courseValidationSchema = z.object({
   name: z.string().min(5, "Course name must be at least 5 characters"),

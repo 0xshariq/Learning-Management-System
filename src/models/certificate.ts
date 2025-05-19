@@ -8,7 +8,7 @@ const certificateSchema = new mongoose.Schema({
   certificateUrl: { type: String, required: true }, // Certificate PDF or Image URL
 })
 
-export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificateSchema)
+export const Certificate = mongoose.models?.Certificate ? mongoose.models.Certificate : mongoose.model("Certificate", certificateSchema)
 
 export const certificateValidationSchema = z.object({
   student: z.string(),

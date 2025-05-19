@@ -10,61 +10,63 @@ interface FAQ {
 // Fallback FAQs in case the API fails
 const fallbackFAQs: FAQ[] = [
   {
+    question: "What courses are available on the platform?",
+    answer:
+      "Our platform offers a wide range of courses across various categories including programming, design, business, marketing, and more. You can browse all courses on our courses page.",
+  },
+  {
     question: "How do I enroll in a course?",
     answer:
-      "To enroll in a course, navigate to the course page and click the 'Enroll' or 'Buy Now' button. Follow the payment instructions if it's a paid course.",
+      "To enroll in a course, simply navigate to the course page, click on the 'Enroll' button, and complete the payment process if it's a paid course.",
   },
   {
     question: "Can I get a refund if I'm not satisfied with a course?",
     answer:
-      "Yes, we offer a 30-day money-back guarantee for most courses. Contact our support team with your order details to process a refund.",
+      "Yes, we offer a 30-day money-back guarantee for most courses. If you're not satisfied, you can request a refund within 30 days of purchase.",
   },
   {
-    question: "How long do I have access to a course after purchasing?",
+    question: "How do I become an instructor?",
     answer:
-      "Once you purchase a course, you have lifetime access to the course materials, including any future updates.",
+      "To become an instructor, sign up for a teacher account and complete your profile. You can then create and publish courses after they've been approved by our team.",
   },
   {
-    question: "Can I download course videos for offline viewing?",
+    question: "How do certificates work?",
     answer:
-      "This depends on the course. Some instructors allow video downloads, while others don't. Check the course details page for specific information.",
-  },
-  {
-    question: "How do I get a certificate after completing a course?",
-    answer:
-      "Certificates are automatically generated once you complete all required modules and assessments. You can download your certificate from your dashboard.",
+      "Upon completing a course, you'll receive a certificate of completion that you can download, print, or share on your social media profiles.",
   },
 ]
 
 export async function GET() {
   try {
-    // Check if Google AI API key is available
+    // Check if API key is available
     const apiKey = process.env.GOOGLE_AI_API_KEY
-
     if (!apiKey) {
-      console.warn("Google AI API key not found, using fallback FAQs")
-      return NextResponse.json({ faqs: fallbackFAQs }, { status: 200 })
+      console.error("Google AI API key is missing")
+      return NextResponse.json({ faqs: fallbackFAQs })
     }
 
-    // Initialize the Google Generative AI with the API key
+    // Initialize the Google AI client
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
-    // Create a structured prompt for FAQ generation
+    // Create a structured prompt that explicitly asks for JSON
     const prompt = `
-      Generate 5 frequently asked questions (FAQs) about online learning platforms or e-learning.
-      Each FAQ should have a question and a detailed answer.
-      Format the response as a valid JSON array with objects containing 'question' and 'answer' fields.
+      Generate 5 frequently asked questions and answers about online learning platforms and courses.
+      
+      Return ONLY a valid JSON array with objects containing 'question' and 'answer' fields.
+      
       Example format:
       [
         {
-          "question": "How do I reset my password?",
-          "answer": "To reset your password, click on the 'Forgot Password' link on the login page..."
+          "question": "What is an online learning platform?",
+          "answer": "An online learning platform is a website or application that provides educational courses and materials that can be accessed remotely via the internet."
         }
       ]
+      
+      Make sure the questions are diverse and cover different aspects of online learning.
     `
 
-    // Generate content with the model
+    // Generate content
     const result = await model.generateContent(prompt)
     const response = await result.response
     const text = response.text()
@@ -72,49 +74,32 @@ export async function GET() {
     // Extract JSON from the response
     let faqs: FAQ[] = []
     try {
-      // Find JSON array in the response text
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      // Find JSON array in the response
+      const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/)
       if (jsonMatch) {
         faqs = JSON.parse(jsonMatch[0])
-
-        // Validate the structure of each FAQ
-        if (
-          !Array.isArray(faqs) ||
-          !faqs.every(
-            (faq) =>
-              typeof faq === "object" &&
-              faq !== null &&
-              "question" in faq &&
-              "answer" in faq &&
-              typeof faq.question === "string" &&
-              typeof faq.answer === "string",
-          )
-        ) {
-          throw new Error("Invalid FAQ structure")
-        }
       } else {
-        throw new Error("No JSON array found in response")
+        // If no JSON array found, try to parse the entire response
+        faqs = JSON.parse(text)
+      }
+
+      // Validate the structure
+      if (
+        !Array.isArray(faqs) ||
+        !faqs.every(
+          (faq) => typeof faq === "object" && typeof faq.question === "string" && typeof faq.answer === "string",
+        )
+      ) {
+        throw new Error("Invalid FAQ structure")
       }
     } catch (error) {
-      console.error("Error parsing AI response:", error)
-      console.log("Raw AI response:", text)
-
-      // Use fallback FAQs if parsing fails
-      faqs = fallbackFAQs
+      console.error("Error parsing FAQs:", error)
+      return NextResponse.json({ faqs: fallbackFAQs })
     }
 
-    return NextResponse.json({ faqs }, { status: 200 })
+    return NextResponse.json({ faqs })
   } catch (error) {
     console.error("Error generating FAQs:", error)
-
-    // Return fallback FAQs in case of any error
-    return NextResponse.json(
-      {
-        faqs: fallbackFAQs,
-        error: "Failed to generate FAQs, using fallback data",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 200 },
-    )
+    return NextResponse.json({ faqs: fallbackFAQs })
   }
 }

@@ -9,7 +9,8 @@ const couponSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 })
 
-export const Coupon = mongoose.models.Coupon || mongoose.model("Coupon", couponSchema)
+export const Coupon = mongoose.models?.Coupon ? mongoose.models.Coupon : mongoose.model("Coupon", couponSchema)
+
 
 export const couponValidationSchema = z.object({
   code: z.string().min(3, "Coupon code must be at least 3 characters"),

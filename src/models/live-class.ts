@@ -9,7 +9,7 @@ const liveClassSchema = new mongoose.Schema({
   meetingLink: { type: String, required: true },
 })
 
-export const LiveClass = mongoose.models.LiveClass || mongoose.model("LiveClass", liveClassSchema)
+export const LiveClass = mongoose.models?.LiveClass ? mongoose.models.LiveClass : mongoose.model("LiveClass", liveClassSchema)
 
 export const liveClassValidationSchema = z.object({
   course: z.string(),

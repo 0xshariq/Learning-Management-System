@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -14,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
+import * as z from "zod"
 
+// Define the form schema
 const formSchema = z.object({
   name: z.string().min(5, {
     message: "Course name must be at least 5 characters.",
@@ -42,18 +43,20 @@ const formSchema = z.object({
     .url({
       message: "Please enter a valid URL for the thumbnail.",
     })
-    .or(z.literal("").transform(() => "")),
+    .optional()
+    .or(z.literal("")),
   isPublished: z.boolean().default(false),
 })
-type FormSchemaType = z.infer<typeof formSchema>;
+
+type FormValues = z.infer<typeof formSchema>
 
 export default function CreateCoursePage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<FormSchemaType>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -68,19 +71,32 @@ export default function CreateCoursePage() {
     },
   })
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!session) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be signed in to create a course.",
-        variant: "destructive",
-      })
-      return
-    }
+  // Redirect if not authenticated or not a teacher
+  if (status === "loading") {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
+  if (status === "unauthenticated" || !session) {
+    router.push("/teacher/signin")
+    return null
+  }
+
+  if (session.user.role !== "teacher") {
+    router.push("/")
+    return null
+  }
+
+  async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
 
     try {
+      console.log("Submitting form with values:", values)
+      console.log("Session:", session)
+
       const response = await fetch("/api/courses", {
         method: "POST",
         headers: {
@@ -88,21 +104,20 @@ export default function CreateCoursePage() {
         },
         body: JSON.stringify({
           ...values,
-          teacher: session.user?.id,
+          teacher: session.user.id,
         }),
       })
 
+      console.log("Response status:", response.status)
+
       if (!response.ok) {
-        let errorData
-        try {
-          errorData = await response.json()
-        } catch {
-          errorData = {}
-        }
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error response:", errorData)
         throw new Error(errorData.message || "Failed to create course")
       }
 
       const data = await response.json()
+      console.log("Success response:", data)
 
       toast({
         title: "Course Created",
@@ -200,8 +215,7 @@ export default function CreateCoursePage() {
                           step="0.01"
                           placeholder="0.00"
                           {...field}
-                          value={field.value ?? ""}
-                          onChange={e => field.onChange(e.target.value === "" ? "" : Number(e.target.value))}
+                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
                         />
                       </FormControl>
                       <FormDescription>Set to 0 for a free course.</FormDescription>
@@ -233,7 +247,7 @@ export default function CreateCoursePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category*</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a category" />
@@ -262,7 +276,7 @@ export default function CreateCoursePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Difficulty Level*</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select difficulty level" />
@@ -288,12 +302,7 @@ export default function CreateCoursePage() {
                   <FormItem>
                     <FormLabel>Course Image URL</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="https://example.com/image.jpg"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
+                      <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormDescription>Provide a URL for your course thumbnail image.</FormDescription>
                     <FormMessage />
@@ -310,7 +319,7 @@ export default function CreateCoursePage() {
                       <input
                         type="checkbox"
                         checked={field.value}
-                        onChange={e => field.onChange(e.target.checked)}
+                        onChange={(e) => field.onChange(e.target.checked)}
                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
                     </FormControl>

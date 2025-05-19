@@ -111,7 +111,7 @@ interface CourseDetailPageProps {
 }
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
-  const courseId = params.courseId
+  const courseId = await params.courseId
   const course = await getCourseDetails(courseId)
   const session = await getServerSession()
 

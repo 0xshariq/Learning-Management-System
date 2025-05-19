@@ -9,7 +9,7 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 })
 
-export const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema)
+export const Review = mongoose.models?.Review ? mongoose.models.Review : mongoose.model("Review", reviewSchema)
 
 export const reviewValidationSchema = z.object({
   course: z.string(),

@@ -2,23 +2,22 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { dbConnect } from "@/lib/dbConnect"
 import { Course } from "@/models/course"
-import { courseValidationSchema } from "@/models/course"
 import { Teacher } from "@/models/teacher"
 import mongoose from "mongoose"
-import type * as z from "zod"
-
-
-
-type CourseData = z.infer<typeof courseValidationSchema>
-
+import { authOptions } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession()
+    // Get the session using the authOptions
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
+
+    // Debug session information
+    console.log("Session user:", session.user)
+    console.log("User role:", session.user.role)
 
     // Check if user is a teacher
     if (session.user.role !== "teacher") {
@@ -28,39 +27,20 @@ export async function POST(req: Request) {
     await dbConnect()
 
     const body = await req.json()
-
-    // Ensure teacher ID is set correctly
-    const dataToValidate = {
-      ...body,
-      teacher: session.user.id,
-    }
-
-    const validation = courseValidationSchema.safeParse(dataToValidate)
-
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          message: "Validation error",
-          errors: validation.error.format(),
-        },
-        { status: 400 },
-      )
-    }
-
-    const data = validation.data
+    console.log("Request body:", body)
 
     // Create the course
     const course = await Course.create({
-      name: data.name,
-      description: data.description,
-      syllabus: data.syllabus,
-      price: data.price,
-      duration: data.duration,
-      category: data.category,
-      level: data.level,
+      name: body.name,
+      description: body.description,
+      syllabus: body.syllabus,
+      price: body.price,
+      duration: body.duration,
+      category: body.category,
+      level: body.level,
       teacher: new mongoose.Types.ObjectId(session.user.id),
-      imageUrl: data.imageUrl || undefined,
-      isPublished: data.isPublished,
+      imageUrl: body.imageUrl || undefined,
+      isPublished: body.isPublished,
       studentsPurchased: [],
       createdAt: new Date(),
     })
@@ -72,7 +52,7 @@ export async function POST(req: Request) {
       {
         message: "Course created successfully",
         course: {
-          _id: (course._id as mongoose.Types.ObjectId | string).toString(),
+          _id: course._id.toString(),
           name: course.name,
           description: course.description,
           syllabus: course.syllabus,
@@ -106,7 +86,7 @@ export async function GET(req: Request) {
     const level = url.searchParams.get("level")
 
     // Build query
-    const query: Record<string, unknown> = {}
+    const query: any = {}
 
     if (teacherId) {
       query.teacher = teacherId
@@ -127,11 +107,10 @@ export async function GET(req: Request) {
     // Get courses
     const coursesData = await Course.find(query).populate("teacher", "name email").sort({ createdAt: -1 }).lean()
 
-
     // Transform courses to ensure proper serialization
-    const serializedCourses = coursesData.map((course) => {
+    const serializedCourses = coursesData.map((course: any) => {
       return {
-        _id: (course._id as mongoose.Types.ObjectId | string).toString(),
+        _id: course._id.toString(),
         name: course.name,
         description: course.description,
         syllabus: course.syllabus,
@@ -147,7 +126,7 @@ export async function GET(req: Request) {
         isPublished: course.isPublished,
         createdAt: course.createdAt,
         imageUrl: course.imageUrl,
-        studentsPurchased: course.studentsPurchased?.map((id: mongoose.Types.ObjectId) => id.toString()),
+        studentsPurchased: course.studentsPurchased?.map((id: any) => id.toString()),
       }
     })
 
@@ -160,7 +139,7 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
@@ -209,7 +188,7 @@ export async function DELETE(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
@@ -248,5 +227,54 @@ export async function PATCH(req: Request) {
   } catch (error) {
     console.error("Error updating course:", error)
     return NextResponse.json({ message: "Failed to update course", error: (error as Error).message }, { status: 500 })
+  }
+}
+export async function PUT(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || !session.user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check if user is a teacher or admin
+    if (session.user.role !== "teacher" && session.user.role !== "admin") {
+      return NextResponse.json({ message: "Only teachers or admins can update courses" }, { status: 403 })
+    }
+
+    await dbConnect()
+
+    const body = await req.json()
+    const { courseId, studentId } = body
+
+    if (!courseId || !studentId) {
+      return NextResponse.json({ message: "Course ID and Student ID are required" }, { status: 400 })
+    }
+
+    // Get the course to check if the teacher is the owner
+    const course = await Course.findById(courseId)
+    if (!course) {
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
+    }
+    // If user is a teacher, check if they own the course
+    if (session.user.role === "teacher" && course.teacher.toString() !== session.user.id) {
+      return NextResponse.json({ message: "You can only update your own courses" }, { status: 403 })
+    }
+    // Check if the student is already in the course
+    const isStudentAlreadyInCourse = course.studentsPurchased.some((student: any) => student.toString() === studentId)
+    if (isStudentAlreadyInCourse) {
+      return NextResponse.json({ message: "Student is already in the course" }, { status: 400 })
+    }
+    // Add the student to the course
+    await Course.findByIdAndUpdate(courseId, { $push: { studentsPurchased: studentId } })
+    // Add the course to the student's purchased courses
+    await Teacher
+      .findByIdAndUpdate(studentId, { $push: { coursesPurchased: courseId } })
+      .populate("coursesPurchased", "name description syllabus price duration category level teacher imageUrl isPublished createdAt")
+      .lean()
+    return NextResponse.json({ message: "Student added to course successfully" }, { status: 200 })
+  } catch (error) {
+    console.error("Error adding student to course:", error)
+    return NextResponse.json({ message: "Failed to add student to course", error: (error as Error).message }, { status: 500 })
   }
 }

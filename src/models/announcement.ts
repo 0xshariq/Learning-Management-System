@@ -9,7 +9,7 @@ const announcementSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 })
 
-export const Announcement = mongoose.models.Announcement || mongoose.model("Announcement", announcementSchema)
+export const Announcement = mongoose.models?.Announcement ? mongoose.models.Announcement : mongoose.model("Announcement", announcementSchema)
 
 export const announcementValidationSchema = z.object({
   course: z.string(),

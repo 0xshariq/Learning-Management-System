@@ -9,7 +9,7 @@ const courseProgressSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 })
 
-export const CourseProgress = mongoose.models.CourseProgress || mongoose.model("CourseProgress", courseProgressSchema)
+export const CourseProgress = mongoose.models?.CourseProgress ? mongoose.models.CourseProgress : mongoose.model("CourseProgress", courseProgressSchema)
 
 export const courseProgressValidationSchema = z.object({
   student: z.string(),
