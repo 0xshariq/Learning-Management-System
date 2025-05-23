@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -12,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2, Upload } from "lucide-react"
 import * as z from "zod"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 // Define the form schema
 const formSchema = z.object({
@@ -26,9 +29,8 @@ const formSchema = z.object({
   syllabus: z.string().min(50, {
     message: "Syllabus must be at least 50 characters.",
   }),
-  price: z.coerce.number().min(0, {
-    message: "Price must be a positive number.",
-  }),
+  priceType: z.enum(["free", "paid"]),
+  price: z.coerce.number().min(0).optional(),
   duration: z.string().min(2, {
     message: "Duration must be specified (e.g., '4 weeks', '10 hours').",
   }),
@@ -55,6 +57,7 @@ export default function CreateCoursePage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -62,6 +65,7 @@ export default function CreateCoursePage() {
       name: "",
       description: "",
       syllabus: "",
+      priceType: "free",
       price: 0,
       duration: "",
       category: "",
@@ -70,6 +74,48 @@ export default function CreateCoursePage() {
       isPublished: false,
     },
   })
+
+  const priceType = form.watch("priceType")
+
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("upload_preset", "course_thumbnails")
+
+      const response = await fetch("/api/cloudinary/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image")
+      }
+
+      const data = await response.json()
+      form.setValue("imageUrl", data.url)
+
+      toast({
+        title: "Image uploaded",
+        description: "Your course thumbnail has been uploaded successfully.",
+      })
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   // Redirect if not authenticated or not a teacher
   if (status === "loading") {
@@ -90,12 +136,56 @@ export default function CreateCoursePage() {
     return null
   }
 
+  // Format syllabus into weeks with bullet points
+  const formatSyllabus = (syllabus: string) => {
+    // Split by lines or paragraphs
+    const lines = syllabus.split(/\n+/)
+    const weeks: { title: string; items: string[] }[] = []
+
+    let currentWeek: { title: string; items: string[] } | null = null
+
+    lines.forEach((line) => {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) return
+
+      // Check if line starts with "Week" or "Module"
+      if (/^(Week|Module)\s+\d+/i.test(trimmedLine)) {
+        if (currentWeek) {
+          weeks.push(currentWeek)
+        }
+        currentWeek = { title: trimmedLine, items: [] }
+      } else if (currentWeek) {
+        currentWeek.items.push(trimmedLine)
+      } else {
+        // If no week has been defined yet, create a default one
+        if (weeks.length === 0) {
+          currentWeek = { title: "Week 1", items: [trimmedLine] }
+          weeks.push(currentWeek)
+        } else {
+          weeks[weeks.length - 1].items.push(trimmedLine)
+        }
+      }
+    })
+
+    // Add the last week if it exists
+    if (currentWeek && !weeks.includes(currentWeek)) {
+      weeks.push(currentWeek)
+    }
+
+    return weeks
+  }
+
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
 
     try {
       console.log("Submitting form with values:", values)
-      console.log("Session:", session)
+
+      // Format the syllabus into structured weeks
+      const formattedSyllabus = formatSyllabus(values.syllabus)
+
+      // Prepare the final price based on priceType
+      const finalPrice = values.priceType === "free" ? 0 : values.price || 0
 
       const response = await fetch("/api/courses", {
         method: "POST",
@@ -104,6 +194,8 @@ export default function CreateCoursePage() {
         },
         body: JSON.stringify({
           ...values,
+          price: finalPrice,
+          formattedSyllabus: JSON.stringify(formattedSyllabus),
           teacher: session.user.id,
         }),
       })
@@ -190,40 +282,76 @@ export default function CreateCoursePage() {
                     <FormLabel>Syllabus*</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Outline the topics and modules covered in your course"
+                        placeholder="Outline the topics and modules covered in your course. Start each week with 'Week 1:', 'Week 2:', etc."
                         className="min-h-32"
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Minimum 50 characters. List the main topics and modules.</FormDescription>
+                    <FormDescription>
+                      Format your syllabus by weeks (e.g., "Week 1: Introduction to the course" followed by bullet
+                      points).
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="priceType"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Course Pricing*</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="free" />
+                          </FormControl>
+                          <FormLabel className="font-normal">Free Course</FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="paid" />
+                          </FormControl>
+                          <FormLabel className="font-normal">Paid Course</FormLabel>
+                        </FormItem>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {priceType === "paid" && (
                 <FormField
                   control={form.control}
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price*</FormLabel>
+                      <FormLabel>Price (₹)*</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
-                          min="0"
+                          min="1"
                           step="0.01"
-                          placeholder="0.00"
+                          placeholder="Enter price"
                           {...field}
                           onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
                         />
                       </FormControl>
-                      <FormDescription>Set to 0 for a free course.</FormDescription>
+                      <FormDescription>Set the price for your course in Indian Rupees.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="duration"
@@ -238,9 +366,7 @@ export default function CreateCoursePage() {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="category"
@@ -269,7 +395,9 @@ export default function CreateCoursePage() {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="level"
@@ -293,22 +421,41 @@ export default function CreateCoursePage() {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Course Image URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormDescription>Provide a URL for your course thumbnail image.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Course Image</FormLabel>
+                      <div className="flex items-center gap-3">
+                        <FormControl>
+                          <Input placeholder="Image URL" {...field} value={field.value || ""} className="flex-1" />
+                        </FormControl>
+                        <div className="relative">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={handleImageUpload}
+                            disabled={isUploading}
+                          />
+                          <Button type="button" variant="outline" disabled={isUploading}>
+                            {isUploading ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            Upload
+                          </Button>
+                        </div>
+                      </div>
+                      <FormDescription>Provide a URL or upload an image for your course thumbnail.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
