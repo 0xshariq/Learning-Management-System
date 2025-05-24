@@ -7,8 +7,9 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { StarIcon } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { StarIcon, User } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface ReviewData {
   _id: string
@@ -24,11 +25,12 @@ interface ReviewData {
 
 interface CourseReviewsProps {
   courseId: string
+  courseName: string
   initialReviews: ReviewData[]
   isEnrolled: boolean
 }
 
-export default function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseReviewsProps) {
+export function CourseReviews({ courseId, courseName, initialReviews, isEnrolled }: CourseReviewsProps) {
   const { data: session } = useSession()
   const { toast } = useToast()
   const [reviews, setReviews] = useState<ReviewData[]>(initialReviews)
@@ -72,13 +74,14 @@ export default function CourseReviews({ courseId, initialReviews, isEnrolled }: 
       })
 
       if (!response.ok) {
-        throw new Error("Failed to submit review")
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to submit review")
       }
 
       const newReview = await response.json()
-
       setReviews([newReview.review, ...reviews])
       setComment("")
+      setRating(5)
 
       toast({
         title: "Review submitted",
@@ -88,7 +91,7 @@ export default function CourseReviews({ courseId, initialReviews, isEnrolled }: 
       console.error("Error submitting review:", error)
       toast({
         title: "Error",
-        description: "Failed to submit your review. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to submit your review. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -96,32 +99,53 @@ export default function CourseReviews({ courseId, initialReviews, isEnrolled }: 
     }
   }
 
-  const StarRating = ({ value, onChange }: { value: number; onChange?: (rating: number) => void }) => {
+  const StarRating = ({
+    value,
+    onChange,
+    readonly = false,
+  }: { value: number; onChange?: (rating: number) => void; readonly?: boolean }) => {
     return (
       <div className="flex">
         {[1, 2, 3, 4, 5].map((star) => (
-          <button
+          <Button
             key={star}
             type="button"
-            onClick={() => onChange && onChange(star)}
-            className={`${onChange ? "cursor-pointer" : "cursor-default"}`}
-            tabIndex={onChange ? 0 : -1}
+            onClick={() => !readonly && onChange && onChange(star)}
+            className={`${!readonly && onChange ? "cursor-pointer hover:scale-110" : "cursor-default"} transition-transform`}
+            tabIndex={!readonly && onChange ? 0 : -1}
             aria-label={onChange ? `Set rating to ${star}` : `Rating: ${star}`}
+            disabled={readonly}
           >
             <StarIcon className={`h-5 w-5 ${star <= value ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-          </button>
+          </Button>
         ))}
       </div>
     )
   }
 
+  const averageRating =
+    reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
+
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-semibold">Student Reviews</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-2xl font-bold">Student Reviews</h3>
+        {reviews.length > 0 && (
+          <div className="flex items-center gap-2">
+            <StarRating value={Math.round(averageRating)} readonly />
+            <span className="text-sm text-muted-foreground">
+              {averageRating.toFixed(1)} ({reviews.length} review{reviews.length !== 1 ? "s" : ""})
+            </span>
+          </div>
+        )}
+      </div>
 
       {isEnrolled && session?.user && (
         <Card>
-          <CardContent className="pt-6">
+          <CardHeader>
+            <CardTitle>Write a Review</CardTitle>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleSubmitReview} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Your Rating</label>
@@ -153,26 +177,43 @@ export default function CourseReviews({ courseId, initialReviews, isEnrolled }: 
       {reviews.length > 0 ? (
         <div className="space-y-4">
           {reviews.map((review) => (
-            <Card key={review._id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-medium">{review.student.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </p>
+            <Card key={review._id}>
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={`/placeholder.svg?height=40&width=40&text=${review.student.name.charAt(0)}`} />
+                    <AvatarFallback>
+                      <User className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium">{review.student.name}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <StarRating value={review.rating} readonly />
+                    </div>
+                    <p className="text-sm leading-relaxed">{review.comment}</p>
                   </div>
-                  <StarRating value={review.rating} />
                 </div>
-                <p className="text-sm">{review.comment}</p>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 border rounded-lg">
-          <p className="text-muted-foreground">No reviews yet. Be the first to review this course!</p>
-        </div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <h4 className="text-lg font-medium mb-2">No reviews yet</h4>
+            <p className="text-muted-foreground">Be the first to review this course!</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
