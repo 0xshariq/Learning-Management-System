@@ -1,7 +1,16 @@
 import mongoose from "mongoose"
 import { z } from "zod"
 
-// Define the student schema
+// Enhanced password validation schema
+const passwordValidation = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/\d/, "Password must contain at least one number")
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character")
+
+// Define the student schema - UNCHANGED
 const studentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -15,15 +24,25 @@ const studentSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-// Create the Student model - Fix the model definition to prevent errors
-export const Student =
-  mongoose.models?.Student ? mongoose.models.Student : mongoose.model("Student", studentSchema)
+// Create the Student model - UNCHANGED
+export const Student = mongoose.models?.Student ? mongoose.models.Student : mongoose.model("Student", studentSchema)
 
-// Zod validation schema
+// Zod validation schema - ONLY ENHANCED PASSWORD VALIDATION
 export const studentValidationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: passwordValidation,
 })
+
+// Password reset validation schema - SEPARATE FROM MODEL
+export const passwordResetSchema = z
+  .object({
+    password: passwordValidation,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  })
 
 export type StudentType = z.infer<typeof studentValidationSchema>

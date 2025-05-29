@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
@@ -13,13 +12,12 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { ShieldCheck } from "lucide-react"
+import { adminValidationSchema } from "@/models/admin"
+import { z } from "zod"
 
-// Create a signup schema that includes password confirmation
-const signUpSchema = z
-  .object({
-    name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-    email: z.string().email({ message: "Please enter a valid email address" }),
-    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+// Extend schema with confirm password
+const signUpSchema = adminValidationSchema
+  .extend({
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

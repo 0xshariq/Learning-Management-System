@@ -1,10 +1,14 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
+import speakeasy from "speakeasy"
 import { dbConnect } from "@/lib/dbConnect"
 import { Student } from "@/models/student"
 import { Teacher } from "@/models/teacher"
 import { Admin } from "@/models/admin"
+
+const MAX_LOGIN_ATTEMPTS = 5
+const LOCK_TIME = 2 * 60 * 60 * 1000 // 2 hours
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,6 +18,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         role: { label: "Role", type: "text" },
+        twoFactorToken: { label: "2FA Token", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password || !credentials?.role) {
@@ -48,6 +53,11 @@ export const authOptions: NextAuthOptions = {
             throw new Error("No user found with this email")
           }
 
+          // Check if account is locked
+          if (user.isLocked) {
+            throw new Error("Account is temporarily locked due to too many failed login attempts")
+          }
+
           // Check if user is blocked (for students and teachers)
           if (credentials.role !== "admin" && user.isBlocked) {
             throw new Error("Your account has been blocked. Please contact support.")
@@ -57,8 +67,41 @@ export const authOptions: NextAuthOptions = {
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
           if (!isPasswordValid) {
+            // Increment login attempts
+            user.loginAttempts = (user.loginAttempts || 0) + 1
+
+            // Lock account if max attempts reached
+            if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+              user.lockUntil = new Date(Date.now() + LOCK_TIME)
+            }
+
+            await user.save()
             throw new Error("Invalid password")
           }
+
+          // Check 2FA if enabled
+          if (user.twoFactorEnabled) {
+            if (!credentials.twoFactorToken) {
+              throw new Error("2FA_REQUIRED")
+            }
+
+            const verified = speakeasy.totp.verify({
+              secret: user.twoFactorSecret,
+              encoding: "base32",
+              token: credentials.twoFactorToken,
+              window: 2,
+            })
+
+            if (!verified) {
+              throw new Error("Invalid 2FA token")
+            }
+          }
+
+          // Reset login attempts on successful login
+          user.loginAttempts = 0
+          user.lockUntil = undefined
+          user.lastLogin = new Date()
+          await user.save()
 
           // Return user object with all necessary fields
           return {
@@ -69,6 +112,7 @@ export const authOptions: NextAuthOptions = {
             isAdmin: credentials.role === "admin",
             image: user.profileImage || null,
             isBlocked: user.isBlocked || false,
+            twoFactorEnabled: user.twoFactorEnabled || false,
           }
         } catch (error) {
           console.error("Authentication error:", error)
@@ -86,6 +130,7 @@ export const authOptions: NextAuthOptions = {
         token.isAdmin = user.isAdmin
         token.image = user.image
         token.isBlocked = user.isBlocked
+        token.twoFactorEnabled = user.twoFactorEnabled
       }
 
       // Handle session updates (like profile image changes)
@@ -107,6 +152,7 @@ export const authOptions: NextAuthOptions = {
         session.user.isAdmin = token.isAdmin as boolean
         session.user.image = token.image as string | null
         session.user.isBlocked = token.isBlocked as boolean
+        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
       }
       return session
     },
@@ -132,7 +178,7 @@ export const authOptions: NextAuthOptions = {
     updateAge: 24 * 60 * 60, // 24 hours
   },
   jwt: {
-    maxAge: 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   events: {
     async signIn({ user, account, profile, isNewUser }) {

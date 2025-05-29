@@ -28,6 +28,8 @@ export async function middleware(request: NextRequest) {
     "/teacher/signup",
     "/student/signin",
     "/student/signup",
+    "/forgot-password",
+    "/reset-password",
   ]
 
   // Check if current path is public or auth page
@@ -55,6 +57,17 @@ export async function middleware(request: NextRequest) {
       })
     }
 
+    // Handle generic dashboard redirect for authenticated users
+    if (pathname === "/dashboard" && isAuthenticated && userRole) {
+      const dashboardUrl = `/${userRole}/dashboard`
+      return NextResponse.redirect(new URL(dashboardUrl, request.url))
+    }
+
+    // Handle generic dashboard redirect for unauthenticated users
+    if (pathname === "/dashboard" && !isAuthenticated) {
+      return NextResponse.redirect(new URL("/role", request.url))
+    }
+
     // Handle public routes - allow access
     if (isPublicRoute && !isAuthPage) {
       return NextResponse.next()
@@ -65,10 +78,9 @@ export async function middleware(request: NextRequest) {
       if (userRole) {
         const dashboardUrl = `/${userRole}/dashboard`
         return NextResponse.redirect(new URL(dashboardUrl, request.url))
-      } else {
-        // If authenticated but no role, redirect to role selection
-        return NextResponse.redirect(new URL("/role", request.url))
       }
+      // If authenticated but no role, redirect to role selection
+      return NextResponse.redirect(new URL("/role", request.url))
     }
 
     // Handle unauthenticated users trying to access protected routes

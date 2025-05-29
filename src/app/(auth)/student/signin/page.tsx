@@ -15,14 +15,28 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 // Define a simple schema for sign-in without relying on the model schema
 const signInSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(1, { message: "Password is required" }),
+  twoFactorToken: z.string().optional(),
+})
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
 })
 
 type SignInFormValues = z.infer<typeof signInSchema>
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
 
 export default function StudentSignIn() {
   const router = useRouter()
@@ -30,6 +44,9 @@ export default function StudentSignIn() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [needs2FA, setNeeds2FA] = useState(false)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
 
   // Get error message from URL if present
   const error = searchParams.get("error")
@@ -39,6 +56,14 @@ export default function StudentSignIn() {
     defaultValues: {
       email: "",
       password: "",
+      twoFactorToken: "",
+    },
+  })
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
     },
   })
 
@@ -51,11 +76,17 @@ export default function StudentSignIn() {
         email: data.email,
         password: data.password,
         role: "student", // Add role to verify on server
+        twoFactorToken: data.twoFactorToken,
         redirect: false,
       })
 
       if (response?.error) {
-        setAuthError("Invalid email or password")
+        if (response.error === "2FA_REQUIRED") {
+          setNeeds2FA(true)
+          setAuthError("Please enter your 2FA code")
+        } else {
+          setAuthError("Invalid email or password")
+        }
       } else {
         toast({
           title: "Success",
@@ -72,6 +103,48 @@ export default function StudentSignIn() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  async function onForgotPasswordSubmit(data: ForgotPasswordFormValues) {
+    setForgotPasswordLoading(true)
+
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.email,
+          role: "student",
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Email Sent",
+          description: result.message,
+        })
+        setForgotPasswordOpen(false)
+        forgotPasswordForm.reset()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to send reset email",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setForgotPasswordLoading(false)
     }
   }
 
@@ -119,6 +192,21 @@ export default function StudentSignIn() {
                   </FormItem>
                 )}
               />
+              {needs2FA && (
+                <FormField
+                  control={form.control}
+                  name="twoFactorToken"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>2FA Code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123456" maxLength={6} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
@@ -126,6 +214,41 @@ export default function StudentSignIn() {
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">
+          <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+            <DialogTrigger asChild>
+              <Button variant="link" size="sm">
+                Forgot password?
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Reset Password</DialogTitle>
+                <DialogDescription>
+                  Enter your email address and we'll send you a link to reset your password.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...forgotPasswordForm}>
+                <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={forgotPasswordForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={forgotPasswordLoading}>
+                    {forgotPasswordLoading ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link href="/student/signup" className="text-primary underline">
