@@ -1,30 +1,30 @@
 import { Resend } from "resend"
+import {
+  generateForgotPasswordEmail,
+  generateResetPasswordSuccessEmail,
+  generateEmailVerificationEmail,
+} from "./email-templates"
 
 // Initialize Resend with API key
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 // Function to send password reset email
-export async function sendPasswordResetEmail(email: string, resetToken: string, role: string) {
+export async function sendPasswordResetEmail(email: string, resetToken: string, role: string, userName = "User") {
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${role}/reset-password?token=${resetToken}`
 
   try {
+    const htmlContent = generateForgotPasswordEmail({
+      userName,
+      userEmail: email,
+      userRole: role.charAt(0).toUpperCase() + role.slice(1),
+      resetUrl,
+    })
+
     const { data, error } = await resend.emails.send({
       from: "EduLearn <noreply@edulearn.com>",
       to: email,
-      subject: "Reset Your EduLearn Password",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4f46e5;">Reset Your Password</h2>
-          <p>Hello,</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
-          </div>
-          <p>If you didn't request this, you can safely ignore this email.</p>
-          <p>This link will expire in 1 hour.</p>
-          <p>Best regards,<br>The EduLearn Team</p>
-        </div>
-      `,
+      subject: "🔑 Reset Your EduLearn Password",
+      html: htmlContent,
     })
 
     if (error) {
@@ -39,36 +39,113 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
   }
 }
 
+// Function to send password reset success email
+export async function sendPasswordResetSuccessEmail(email: string, role: string, userName = "User") {
+  const signInUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${role}/signin`
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${role}/dashboard`
+
+  try {
+    const htmlContent = generateResetPasswordSuccessEmail({
+      userName,
+      userEmail: email,
+      userRole: role.charAt(0).toUpperCase() + role.slice(1),
+      signInUrl,
+      dashboardUrl,
+    })
+
+    const { data, error } = await resend.emails.send({
+      from: "EduLearn <noreply@edulearn.com>",
+      to: email,
+      subject: "✅ Password Reset Successful - EduLearn",
+      html: htmlContent,
+    })
+
+    if (error) {
+      console.error("Error sending success email:", error)
+      throw new Error("Failed to send password reset success email")
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error sending success email:", error)
+    throw new Error("Failed to send password reset success email")
+  }
+}
+
+// Function to send email verification
+export async function sendVerificationEmail(email: string, verificationToken: string, role: string, userName = "User") {
+  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}&role=${role}`
+
+  try {
+    const htmlContent = generateEmailVerificationEmail({
+      userName,
+      userEmail: email,
+      userRole: role.charAt(0).toUpperCase() + role.slice(1),
+      verificationUrl,
+      isStudent: role === "student",
+      isTeacher: role === "teacher",
+      isAdmin: role === "admin",
+    })
+
+    const { data, error } = await resend.emails.send({
+      from: "EduLearn <noreply@edulearn.com>",
+      to: email,
+      subject: "📧 Verify Your EduLearn Account",
+      html: htmlContent,
+    })
+
+    if (error) {
+      console.error("Error sending verification email:", error)
+      throw new Error("Failed to send verification email")
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error sending verification email:", error)
+    throw new Error("Failed to send verification email")
+  }
+}
+
 // Function to send 2FA setup email
 export async function send2FASetupEmail(email: string, qrCodeUrl: string) {
   try {
     const { data, error } = await resend.emails.send({
       from: "EduLearn <noreply@edulearn.com>",
       to: email,
-      subject: "Set Up Two-Factor Authentication",
+      subject: "🔐 Two-Factor Authentication Setup - EduLearn",
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4f46e5;">Two-Factor Authentication Setup</h2>
-          <p>Hello,</p>
-          <p>You've requested to set up two-factor authentication for your EduLearn account.</p>
-          <p>Scan the QR code below with your authenticator app:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <img src="${qrCodeUrl}" alt="QR Code" style="max-width: 200px;" />
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #4f46e5; margin: 0;">🎓 EduLearn</h1>
           </div>
-          <p>If you can't scan the QR code, please contact support for assistance.</p>
-          <p>Best regards,<br>The EduLearn Team</p>
+          
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+            <h2 style="color: white; margin: 0;">🔐 Two-Factor Authentication</h2>
+          </div>
+          
+          <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #166534;">Your 2FA has been successfully set up!</p>
+            <p style="color: #166534;">Use your authenticator app to scan the QR code and generate tokens.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <img src="${qrCodeUrl}" alt="2FA QR Code" style="max-width: 200px; border: 2px solid #e5e7eb; border-radius: 8px;">
+          </div>
+          
+          <div style="background: #eff6ff; border: 1px solid #3b82f6; padding: 15px; border-radius: 8px;">
+            <p style="margin: 0; color: #1e40af; font-size: 14px;">💡 Keep your authenticator app safe and secure!</p>
+          </div>
         </div>
       `,
     })
 
     if (error) {
-      console.error("Error sending 2FA setup email:", error)
       throw new Error("Failed to send 2FA setup email")
     }
 
-    return { success: true }
+    return { success: true, data }
   } catch (error) {
-    console.error("Error sending 2FA setup email:", error)
-    throw new Error("Failed to send 2FA setup email")
+    console.error("2FA email error:", error)
+    throw new Error("2FA email service unavailable")
   }
 }

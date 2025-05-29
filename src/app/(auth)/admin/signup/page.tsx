@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast"
 import { ShieldCheck } from "lucide-react"
 import { adminValidationSchema } from "@/models/admin"
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { z } from "zod"
 
 // Extend schema with confirm password
@@ -70,6 +71,8 @@ export default function AdminSignUp() {
     },
   })
 
+  const password = form.watch("password")
+
   async function onSubmit(data: SignUpFormValues) {
     setIsLoading(true)
 
@@ -94,7 +97,7 @@ export default function AdminSignUp() {
 
       toast({
         title: "Success",
-        description: "Admin account created successfully. Please sign in.",
+        description: "Admin account created successfully. Please check your email to verify your account.",
       })
 
       router.push("/admin/signin")
@@ -186,6 +189,7 @@ export default function AdminSignUp() {
                     <FormControl>
                       <PasswordInput placeholder="••••••••" {...field} />
                     </FormControl>
+                    <PasswordStrengthMeter password={password} />
                     <FormMessage />
                   </FormItem>
                 )}

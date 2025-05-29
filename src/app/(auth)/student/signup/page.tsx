@@ -12,6 +12,7 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { studentValidationSchema } from "@/models/student"
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { z } from "zod"
 
 // Extend schema with confirm password
@@ -41,6 +42,8 @@ export default function StudentSignUp() {
     },
   })
 
+  const password = form.watch("password")
+
   async function onSubmit(data: SignUpFormValues) {
     setIsLoading(true)
 
@@ -65,7 +68,7 @@ export default function StudentSignUp() {
 
       toast({
         title: "Success",
-        description: "Account created successfully. Please sign in.",
+        description: "Account created successfully. Please check your email to verify your account.",
       })
 
       router.push("/student/signin")
@@ -126,6 +129,7 @@ export default function StudentSignUp() {
                       <FormControl>
                         <PasswordInput placeholder="••••••••" {...field} />
                       </FormControl>
+                      <PasswordStrengthMeter password={password} />
                       <FormMessage />
                     </FormItem>
                   )}

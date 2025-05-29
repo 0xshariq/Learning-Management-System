@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import speakeasy from "speakeasy"
 import QRCode from "qrcode"
@@ -7,8 +7,9 @@ import { Student } from "@/models/student"
 import { Teacher } from "@/models/teacher"
 import { Admin } from "@/models/admin"
 import { authOptions } from "@/lib/auth"
+import { send2FASetupEmail } from "@/lib/email"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     await dbConnect()
 
-    let userModel
+    let userModel: typeof Student | typeof Teacher | typeof Admin
     switch (session.user.role) {
       case "student":
         userModel = Student
@@ -47,11 +48,17 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate QR code
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!)
+    if (!secret.otpauth_url) {
+      return NextResponse.json({ error: "Failed to generate OTP Auth URL" }, { status: 500 })
+    }
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url)
 
     // Save secret to user (but don't enable 2FA yet)
     user.twoFactorSecret = secret.base32
     await user.save()
+
+    // Send setup email using Resend
+    await send2FASetupEmail(user.email, qrCodeUrl)
 
     return NextResponse.json({
       secret: secret.base32,

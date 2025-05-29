@@ -1,30 +1,31 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
 import { dbConnect } from "@/lib/dbConnect"
-import { Student, studentPasswordResetSchema } from "@/models/student"
-import { Teacher, teacherPasswordResetSchema } from "@/models/teacher"
+import { Student, passwordResetSchema as studentResetSchema } from "@/models/student"
+import { Teacher, passwordResetSchema as teacherResetSchema } from "@/models/teacher"
 import { Admin, adminPasswordResetSchema } from "@/models/admin"
+import type { ZodType } from "zod"
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
+    const body = await req.json()
     const { token, password, confirmPassword, role } = body
 
     if (!token || !password || !confirmPassword || !role) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    // Validate based on role
-    let validationSchema
-    let userModel
+    let validationSchema: ZodType<{ password: string; confirmPassword: string }>
+    let userModel: typeof Student | typeof Teacher | typeof Admin
 
     switch (role) {
       case "student":
-        validationSchema = studentPasswordResetSchema
+        validationSchema = studentResetSchema
         userModel = Student
         break
       case "teacher":
-        validationSchema = teacherPasswordResetSchema
+        validationSchema = teacherResetSchema
         userModel = Teacher
         break
       case "admin":
@@ -35,22 +36,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid role" }, { status: 400 })
     }
 
-    // Validate input
-    const validation = validationSchema.safeParse(body)
+    // Validate input using imported schema
+    const validation = validationSchema.safeParse({ password, confirmPassword })
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 })
     }
 
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
+
     await dbConnect()
 
-    // Find user with valid reset token
+    // Find user with valid token
     const user = await userModel.findOne({
-      resetToken: token,
-      resetTokenExpiry: { $gt: new Date() },
+      resetToken: hashedToken,
+      resetTokenExpiry: { $gt: Date.now() },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "Invalid or expired reset token" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 })
     }
 
     // Hash new password
@@ -58,15 +62,14 @@ export async function POST(request: NextRequest) {
 
     // Update user password and clear reset token
     user.password = hashedPassword
-    user.resetToken = null
-    user.resetTokenExpiry = null
-    user.loginAttempts = 0
-    user.lockUntil = undefined
+    user.resetToken = undefined
+    user.resetTokenExpiry = undefined
+
     await user.save()
 
     return NextResponse.json({ message: "Password reset successfully" }, { status: 200 })
   } catch (error) {
     console.error("Password reset error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 })
   }
 }

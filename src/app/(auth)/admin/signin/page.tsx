@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast"
 import { AlertCircle, ShieldCheck } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,8 @@ export default function AdminSignIn() {
       email: "",
     },
   })
+
+  const password = form.watch("password")
 
   async function onSubmit(data: SignInFormValues) {
     setIsLoading(true)
@@ -200,6 +203,7 @@ export default function AdminSignIn() {
                       <PasswordInput placeholder="••••••••" {...field} />
                     </FormControl>
                     <FormMessage />
+                    <PasswordStrengthMeter password={password} />
                   </FormItem>
                 )}
               />

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     await dbConnect()
 
     // Find user based on role
-    let user: Student | Teacher | Admin | null
+    let user: typeof Student | typeof Teacher | typeof Admin | null
     switch (role) {
       case "student":
         user = await Student.findOne({ email })

@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
@@ -12,15 +11,14 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { teacherValidationSchema } from "@/models/teacher"
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
+import { z } from "zod"
 
-const signUpSchema = z
-  .object({
-    name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-    email: z.string().email({ message: "Please enter a valid email address" }),
-    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+// Extend schema with confirm password
+const signUpSchema = teacherValidationSchema
+  .extend({
     confirmPassword: z.string(),
-    upiId: z.string().min(1, { message: "UPI ID is required" }),
-    age: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -42,9 +40,11 @@ export default function TeacherSignUp() {
       password: "",
       confirmPassword: "",
       upiId: "",
-      age: "",
+      age: undefined,
     },
   })
+
+  const password = form.watch("password")
 
   async function onSubmit(data: SignUpFormValues) {
     setIsLoading(true)
@@ -61,7 +61,7 @@ export default function TeacherSignUp() {
           password: data.password,
           role: "teacher",
           upiId: data.upiId,
-          age: data.age ? Number.parseInt(data.age, 10) : undefined,
+          age: data.age,
         }),
       })
 
@@ -72,7 +72,7 @@ export default function TeacherSignUp() {
 
       toast({
         title: "Success",
-        description: "Account created successfully. Please sign in.",
+        description: "Account created successfully. Please check your email to verify your account.",
       })
 
       router.push("/teacher/signin")
@@ -133,6 +133,7 @@ export default function TeacherSignUp() {
                       <FormControl>
                         <PasswordInput placeholder="••••••••" {...field} />
                       </FormControl>
+                      <PasswordStrengthMeter password={password} />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -170,7 +171,12 @@ export default function TeacherSignUp() {
                     <FormItem>
                       <FormLabel>Age (Optional)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="30" {...field} />
+                        <Input
+                          type="number"
+                          placeholder="30"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

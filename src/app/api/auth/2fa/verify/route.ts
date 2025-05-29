@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import speakeasy from "speakeasy"
 import { dbConnect } from "@/lib/dbConnect"
@@ -7,7 +7,7 @@ import { Teacher } from "@/models/teacher"
 import { Admin } from "@/models/admin"
 import { authOptions } from "@/lib/auth"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     const { token } = await request.json()
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     await dbConnect()
 
-    let userModel
+    let userModel: typeof Student | typeof Teacher | typeof Admin
     switch (session.user.role) {
       case "student":
         userModel = Student
