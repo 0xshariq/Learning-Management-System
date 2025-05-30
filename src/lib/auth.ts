@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
 import bcrypt from "bcryptjs"
 import speakeasy from "speakeasy"
 import { dbConnect } from "@/lib/dbConnect"
@@ -123,6 +124,30 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           console.error("Authentication error:", error)
           throw new Error(error instanceof Error ? error.message : "Authentication failed")
+        }
+      },
+    }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          role: "student", // Default role for Google sign-in
+          isAdmin: false,
+          isBlocked: false,
+          isEmailVerified: true, // Google accounts are always verified
+          twoFactorEnabled: false,
         }
       },
     }),

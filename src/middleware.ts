@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import { redirect } from "next/navigation"
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -118,9 +119,9 @@ export async function middleware(request: NextRequest) {
     // Handle role-based route protection for authenticated users
     if (isAuthenticated && !isAuthPage && !isPublicRoute) {
       // If user is authenticated but has no role, redirect to role selection
-      if (!userRole) {
-        return NextResponse.redirect(new URL("/role", request.url))
-      }
+      // if (!userRole) {
+      //   return NextResponse.redirect(new URL("/role", request.url))
+      // }
 
       // Admin routes protection
       if (pathname.startsWith("/admin") && userRole !== "admin") {
@@ -154,6 +155,7 @@ export async function middleware(request: NextRequest) {
           if (exists) {
             return NextResponse.redirect(new URL("/admin/signin", request.url))
           }
+          redirect("/admin/dashboard")
         }
       } catch (error) {
         console.error("Error checking admin exists:", error)
