@@ -10,7 +10,7 @@ const passwordValidation = z
   .regex(/\d/, "Password must contain at least one number")
   .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character")
 
-// Define the student schema - UNCHANGED
+// Define the student schema with all necessary fields
 const studentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -20,21 +20,51 @@ const studentSchema = new mongoose.Schema(
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
     progress: [{ type: mongoose.Schema.Types.ObjectId, ref: "CourseProgress" }],
     certificates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Certificate" }],
+
+    // Authentication fields
+    isBlocked: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String, default: null },
+    emailVerificationExpiry: { type: Date, default: null },
+
+    // Security fields
+    loginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date, default: null },
+    lastLogin: { type: Date, default: null },
+
+    // 2FA fields
+    twoFactorSecret: { type: String, default: null },
+    twoFactorEnabled: { type: Boolean, default: false },
+
+    // Password reset fields
+    resetToken: { type: String, default: null },
+    resetTokenExpiry: { type: Date, default: null },
+
+    // Profile fields
+    bio: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    website: { type: String, default: "" },
+    profileImage: { type: String, default: "" },
   },
   { timestamps: true },
 )
 
-// Create the Student model - UNCHANGED
+// Add virtual for isLocked
+studentSchema.virtual("isLocked").get(function () {
+  return !!(this.lockUntil && this.lockUntil.getTime() > Date.now())
+})
+
+// Create the Student model
 export const Student = mongoose.models?.Student ? mongoose.models.Student : mongoose.model("Student", studentSchema)
 
-// Zod validation schema - ONLY ENHANCED PASSWORD VALIDATION
+// Zod validation schema
 export const studentValidationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: passwordValidation,
 })
 
-// Password reset validation schema - SEPARATE FROM MODEL
+// Password reset validation schema
 export const passwordResetSchema = z
   .object({
     password: passwordValidation,

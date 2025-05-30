@@ -1,21 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { dbConnect } from "@/lib/dbConnect"
 import { Course } from "@/models/course"
 import { Student } from "@/models/student"
 
-export async function POST(request: NextRequest, { params }: { params: { courseId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
+    // Check authentication
     if (!session?.user) {
       return NextResponse.json({ message: "Authentication required. Please sign in to continue." }, { status: 401 })
     }
 
+    // Check if user is a student
     if (session.user.role !== "student") {
       return NextResponse.json(
         {
           message: "Access denied. Only students can enroll in courses.",
+          userRole: session.user.role, // Debug info
+        },
+        { status: 403 },
+      )
+    }
+
+    // Check if student's email is verified
+    if (!session.user.isEmailVerified) {
+      return NextResponse.json(
+        {
+          message: "Please verify your email before enrolling in courses.",
+        },
+        { status: 403 },
+      )
+    }
+
+    // Check if student is blocked
+    if (session.user.isBlocked) {
+      return NextResponse.json(
+        {
+          message: "Your account has been suspended. Please contact support.",
         },
         { status: 403 },
       )
@@ -23,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { courseI
 
     await dbConnect()
 
-    const { courseId } = params
+    const { courseId } = await params
 
     // Validate courseId format
     if (!courseId || typeof courseId !== "string") {
@@ -76,16 +100,6 @@ export async function POST(request: NextRequest, { params }: { params: { courseI
           message: "You are already enrolled in this course. Continue learning!",
         },
         { status: 400 },
-      )
-    }
-
-    // Check if student is blocked
-    if (student.isBlocked) {
-      return NextResponse.json(
-        {
-          message: "Your account has been suspended. Please contact support.",
-        },
-        { status: 403 },
       )
     }
 

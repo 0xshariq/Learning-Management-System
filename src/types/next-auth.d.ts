@@ -8,7 +8,8 @@ declare module "next-auth" {
       role: string
       isAdmin: boolean
       isBlocked: boolean
-      twoFactorEnabled?: boolean
+      isEmailVerified: boolean
+      twoFactorEnabled: boolean
     } & DefaultSession["user"]
   }
 
@@ -16,7 +17,8 @@ declare module "next-auth" {
     role: string
     isAdmin: boolean
     isBlocked: boolean
-    twoFactorEnabled?: boolean
+    isEmailVerified: boolean
+    twoFactorEnabled: boolean
   }
 }
 
@@ -26,6 +28,7 @@ declare module "next-auth/jwt" {
     role: string
     isAdmin: boolean
     isBlocked: boolean
-    twoFactorEnabled?: boolean
+    isEmailVerified: boolean
+    twoFactorEnabled: boolean
   }
 }

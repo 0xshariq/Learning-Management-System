@@ -10,24 +10,40 @@ const passwordSchema = z
   .regex(/\d/, "Password must contain at least one number")
   .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character")
 
-// Define the admin schema
+// Define the admin schema with all necessary fields
 const adminSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    twoFactorSecret: { type: String, default: null },
-    twoFactorEnabled: { type: Boolean, default: false },
-    resetToken: { type: String, default: null },
-    resetTokenExpiry: { type: Date, default: null },
-    lastLogin: { type: Date, default: null },
+
+    // Authentication fields (admin is always verified and never blocked)
+    isBlocked: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: true },
+
+    // Security fields
     loginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date, default: null },
+    lastLogin: { type: Date, default: null },
+
+    // 2FA fields
+    twoFactorSecret: { type: String, default: null },
+    twoFactorEnabled: { type: Boolean, default: false },
+
+    // Password reset fields
+    resetToken: { type: String, default: null },
+    resetTokenExpiry: { type: Date, default: null },
+
+    // Profile fields
+    bio: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    website: { type: String, default: "" },
+    profileImage: { type: String, default: "" },
   },
   { timestamps: true },
 )
 
-// Virtual for checking if account is locked
+// Add virtual for isLocked
 adminSchema.virtual("isLocked").get(function () {
   return !!(this.lockUntil && this.lockUntil.getTime() > Date.now())
 })
@@ -35,7 +51,7 @@ adminSchema.virtual("isLocked").get(function () {
 // Create the Admin model
 export const Admin = mongoose.models?.Admin ? mongoose.models.Admin : mongoose.model("Admin", adminSchema)
 
-// Zod validation schema
+// Zod validation schema with strong password
 export const adminValidationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),

@@ -63,6 +63,11 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Your account has been blocked. Please contact support.")
           }
 
+          // Check if email is verified (for students and teachers)
+          if (credentials.role !== "admin" && !user.isEmailVerified) {
+            throw new Error("Please verify your email before signing in.")
+          }
+
           // Verify password
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
@@ -108,10 +113,11 @@ export const authOptions: NextAuthOptions = {
             id: user._id.toString(),
             name: user.name,
             email: user.email,
-            role: credentials.role,
+            role: credentials.role, // This is crucial - use the role from credentials
             isAdmin: credentials.role === "admin",
             image: user.profileImage || null,
             isBlocked: user.isBlocked || false,
+            isEmailVerified: user.isEmailVerified || credentials.role === "admin",
             twoFactorEnabled: user.twoFactorEnabled || false,
           }
         } catch (error) {
@@ -123,14 +129,23 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // Initial sign in
+      // Initial sign in - store all user data in token
       if (user) {
         token.id = user.id
         token.role = user.role
         token.isAdmin = user.isAdmin
         token.image = user.image
         token.isBlocked = user.isBlocked
+        token.isEmailVerified = user.isEmailVerified
         token.twoFactorEnabled = user.twoFactorEnabled
+
+        // Debug log to verify role is being set
+        console.log("JWT Callback - Setting token:", {
+          id: token.id,
+          role: token.role,
+          email: token.email,
+          isAdmin: token.isAdmin,
+        })
       }
 
       // Handle session updates (like profile image changes)
@@ -152,7 +167,16 @@ export const authOptions: NextAuthOptions = {
         session.user.isAdmin = token.isAdmin as boolean
         session.user.image = token.image as string | null
         session.user.isBlocked = token.isBlocked as boolean
+        session.user.isEmailVerified = token.isEmailVerified as boolean
         session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
+
+        // Debug log to verify session is being set correctly
+        console.log("Session Callback - Setting session:", {
+          id: session.user.id,
+          role: session.user.role,
+          email: session.user.email,
+          isAdmin: session.user.isAdmin,
+        })
       }
       return session
     },
