@@ -16,8 +16,7 @@ export async function GET() {
       role: session.user.role,
       email: session.user.email,
       isAdmin: session.user.isAdmin,
-      isBlocked: session.user.isBlocked,
-      isEmailVerified: session.user.isEmailVerified,
+      isBlocked: session.user.isBlocked
     })
 
     return NextResponse.json(
@@ -30,8 +29,7 @@ export async function GET() {
             role: session.user.role,
             isAdmin: session.user.isAdmin,
             isBlocked: session.user.isBlocked,
-            isEmailVerified: session.user.isEmailVerified,
-            image: session.user.image,
+            image: session.user.image
           },
         },
       },
