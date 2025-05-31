@@ -47,17 +47,3 @@ export function generateResetPasswordSuccessEmail(variables: {
   const template = loadTemplate("reset-password-success")
   return replaceTemplateVariables(template, variables)
 }
-
-// Email Verification Email
-export function generateEmailVerificationEmail(variables: {
-  userName: string
-  userEmail: string
-  userRole: string
-  verificationUrl: string
-  isStudent?: boolean
-  isTeacher?: boolean
-  isAdmin?: boolean
-}): string {
-  const template = loadTemplate("email-verification")
-  return replaceTemplateVariables(template, variables)
-}
