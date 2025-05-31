@@ -11,6 +11,36 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import Image from "next/image"
 import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react"
+interface ICourse {
+    _id: string;
+    name: string;
+    imageUrl?: string;
+    duration?: string;
+    studentsPurchased?: string[];
+    price: number;
+    isPublished: boolean;
+  }
+
+  interface ITeacher {
+    _id: string;
+    name: string;
+    // add more fields as needed
+  }
+
+  interface IReview {
+    _id: string;
+    rating: number;
+    comment: string;
+    createdAt: string | Date;
+    student?: {
+      _id: string;
+      name: string;
+    };
+    course?: {
+      _id: string;
+      name: string;
+    };
+  }
 
 export default async function TeacherDashboard() {
   const session = await getServerSession()
@@ -29,12 +59,11 @@ export default async function TeacherDashboard() {
   }
 
   // Fetch courses created by the teacher
-  const courses = await Course.find({
+  const courses: ICourse[] = await Course.find({
     teacher: teacher._id,
-  }).lean()
+  }).lean();
 
-  // Get course IDs
-  const courseIds = courses.map((course) => course._id)
+  const courseIds: string[] = courses.map((course) => course._id as string);
 
   // Count total students across all courses
   const totalStudents = await Student.countDocuments({
@@ -50,8 +79,10 @@ export default async function TeacherDashboard() {
     .lean()
 
   // Calculate average rating
-  const averageRating =
-    reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
+  const averageRating: number =
+    reviews.length > 0
+      ? reviews.reduce((sum: number, review: IReview) => sum + review.rating, 0) / reviews.length
+      : 0
 
   // Calculate total revenue (placeholder - would need payment system)
   const totalRevenue = courses.reduce((sum, course) => {

@@ -106,9 +106,11 @@ export async function POST(req: Request) {
                   { status: 200 },
                 ),
               )
+              reject(null) // Resolve the promise successfully
             } catch (dbError) {
               console.error("Database error:", dbError)
               resolve(NextResponse.json({ message: "Failed to save video information" }, { status: 500 }))
+              reject(dbError)
             }
           }
         },

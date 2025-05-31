@@ -393,7 +393,7 @@ export default function HelpCenterPage() {
         <div className="bg-muted rounded-lg p-8 text-center max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold mb-4">Still need help?</h2>
           <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
-            Can't find what you're looking for? Our support team is ready to assist you with any questions or issues.
+            Can&apos;t find what you&apos;re looking for? Our support team is ready to assist you with any questions or issues.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild>

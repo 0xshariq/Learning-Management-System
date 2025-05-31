@@ -113,7 +113,7 @@ export function CourseReviews({ courseId, courseName, initialReviews, isEnrolled
     return (
       <div className="flex">
         {[1, 2, 3, 4, 5].map((star) => (
-          <button
+          <Button
             key={star}
             type="button"
             onClick={() => !readonly && onChange && onChange(star)}
@@ -123,7 +123,7 @@ export function CourseReviews({ courseId, courseName, initialReviews, isEnrolled
             disabled={readonly}
           >
             <StarIcon className={`h-5 w-5 ${star <= value ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-          </button>
+          </Button>
         ))}
       </div>
     )

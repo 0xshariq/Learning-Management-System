@@ -1,19 +1,34 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { PasswordInput } from "@/components/ui/password-input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { studentValidationSchema } from "@/models/student"
-import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
-import { z } from "zod"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { studentValidationSchema } from "@/models/student";
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter";
+import { z } from "zod";
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 // Extend schema with confirm password
 const signUpSchema = studentValidationSchema
@@ -23,14 +38,14 @@ const signUpSchema = studentValidationSchema
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
+  });
 
-type SignUpFormValues = z.infer<typeof signUpSchema>
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function StudentSignUp() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -40,12 +55,12 @@ export default function StudentSignUp() {
       password: "",
       confirmPassword: "",
     },
-  })
+  });
 
-  const password = form.watch("password")
+  const password = form.watch("password");
 
   async function onSubmit(data: SignUpFormValues) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -59,27 +74,31 @@ export default function StudentSignUp() {
           password: data.password,
           role: "student",
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to register")
+        const error = await response.json();
+        throw new Error(error.message || "Failed to register");
       }
 
       toast({
         title: "Success",
-        description: "Account created successfully. Please check your email to verify your account.",
-      })
+        description:
+          "Account created successfully. Please check your email to verify your account.",
+      });
 
-      router.push("/student/signin")
+      router.push("/student/signin");
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -89,11 +108,16 @@ export default function StudentSignUp() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl">Student Sign Up</CardTitle>
-            <CardDescription>Create your student account to start learning</CardDescription>
+            <CardDescription>
+              Create your student account to start learning
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="name"
@@ -160,12 +184,16 @@ export default function StudentSignUp() {
                 Sign in
               </Link>
             </p>
-            <Link href="/role" className="text-sm text-muted-foreground hover:text-primary">
+            <Link
+              href="/role"
+              className="text-sm text-muted-foreground hover:text-primary"
+            >
               Back to role selection
             </Link>
           </CardFooter>
+          <BorderBeam duration={8} size={100} />
         </Card>
       </main>
     </div>
-  )
+  );
 }

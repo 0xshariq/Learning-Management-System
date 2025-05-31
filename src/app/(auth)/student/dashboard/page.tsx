@@ -13,7 +13,7 @@ import { BookOpen, Award, Clock, Star, PlayCircle, User, TrendingUp } from "luci
 
 export default async function StudentDashboard() {
   const session = await getServerSession()
-
+  console.log("Session:", session)
   if (!session || !session.user || session.user.role !== "student") {
     redirect("/role")
   }

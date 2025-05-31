@@ -1,36 +1,48 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { BookOpen, ClapperboardIcon as ChalkboardTeacher, ShieldCheck } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  BookOpen,
+  ClapperboardIcon as ChalkboardTeacher,
+  ShieldCheck,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 export default function RolePage() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState("signin")
-  const [adminExists, setAdminExists] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("signin");
+  const [adminExists, setAdminExists] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check if admin exists
     const checkAdmin = async () => {
       try {
-        const response = await fetch("/api/auth/admin-exists")
-        const data = await response.json()
-        setAdminExists(data.exists)
+        const response = await fetch("/api/auth/admin-exists");
+        const data = await response.json();
+        setAdminExists(data.exists);
       } catch (error) {
-        console.error("Failed to check admin status:", error)
+        console.error("Failed to check admin status:", error);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    checkAdmin()
-  }, [])
+    checkAdmin();
+  }, []);
 
   const handleRoleSelect = (role: string) => {
     if (role === "admin" && adminExists && activeTab === "signup") {
@@ -38,21 +50,26 @@ export default function RolePage() {
         title: "Admin Already Exists",
         description: "Only one admin account is allowed in the system.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (activeTab === "signin") {
-      router.push(`/${role}/signin`)
+      router.push(`/${role}/signin`);
     } else {
-      router.push(`/${role}/signup`)
+      router.push(`/${role}/signup`);
     }
-  }
+  };
 
   return (
     <div className="flex justify-center items-center min-h-screen py-12">
       <div className="container max-w-md px-4">
-        <Tabs defaultValue="signin" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          defaultValue="signin"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -72,7 +89,9 @@ export default function RolePage() {
                   <BookOpen className="mr-2 h-5 w-5 text-primary" />
                   <div className="text-left">
                     <div className="font-medium">Student</div>
-                    <div className="text-xs text-muted-foreground">Access courses and track your progress</div>
+                    <div className="text-xs text-muted-foreground">
+                      Access courses and track your progress
+                    </div>
                   </div>
                 </Button>
                 <Button
@@ -83,7 +102,9 @@ export default function RolePage() {
                   <ChalkboardTeacher className="mr-2 h-5 w-5 text-primary" />
                   <div className="text-left">
                     <div className="font-medium">Teacher</div>
-                    <div className="text-xs text-muted-foreground">Create and manage your courses</div>
+                    <div className="text-xs text-muted-foreground">
+                      Create and manage your courses
+                    </div>
                   </div>
                 </Button>
                 <Button
@@ -94,18 +115,24 @@ export default function RolePage() {
                   <ShieldCheck className="mr-2 h-5 w-5 text-primary" />
                   <div className="text-left">
                     <div className="font-medium">Admin</div>
-                    <div className="text-xs text-muted-foreground">Manage the entire platform</div>
+                    <div className="text-xs text-muted-foreground">
+                      Manage the entire platform
+                    </div>
                   </div>
                 </Button>
               </CardContent>
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-muted-foreground">
-                  Don't have an account?{" "}
-                  <Button onClick={() => setActiveTab("signup")} className="text-primary underline cursor-pointer">
+                  Don&apos;t have an account?{" "}
+                  <Button
+                    onClick={() => setActiveTab("signup")}
+                    className="text-primary underline cursor-pointer"
+                  >
                     Sign up
                   </Button>
                 </p>
               </CardFooter>
+              <BorderBeam duration={8} size={100} />
             </Card>
           </TabsContent>
           <TabsContent value="signup">
@@ -123,7 +150,9 @@ export default function RolePage() {
                   <BookOpen className="mr-2 h-5 w-5 text-primary" />
                   <div className="text-left">
                     <div className="font-medium">Student</div>
-                    <div className="text-xs text-muted-foreground">Learn new skills and enroll in courses</div>
+                    <div className="text-xs text-muted-foreground">
+                      Learn new skills and enroll in courses
+                    </div>
                   </div>
                 </Button>
                 <Button
@@ -134,7 +163,9 @@ export default function RolePage() {
                   <ChalkboardTeacher className="mr-2 h-5 w-5 text-primary" />
                   <div className="text-left">
                     <div className="font-medium">Teacher</div>
-                    <div className="text-xs text-muted-foreground">Share your knowledge and earn money</div>
+                    <div className="text-xs text-muted-foreground">
+                      Share your knowledge and earn money
+                    </div>
                   </div>
                 </Button>
                 {(!adminExists || isLoading) && (
@@ -147,7 +178,9 @@ export default function RolePage() {
                     <ShieldCheck className="mr-2 h-5 w-5 text-primary" />
                     <div className="text-left">
                       <div className="font-medium">Admin</div>
-                      <div className="text-xs text-muted-foreground">Set up the platform administration</div>
+                      <div className="text-xs text-muted-foreground">
+                        Set up the platform administration
+                      </div>
                     </div>
                   </Button>
                 )}
@@ -155,15 +188,19 @@ export default function RolePage() {
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
-                  <Button onClick={() => setActiveTab("signin")} className="text-primary underline cursor-pointer">
+                  <Button
+                    onClick={() => setActiveTab("signin")}
+                    className="text-primary underline cursor-pointer"
+                  >
                     Sign in
                   </Button>
                 </p>
               </CardFooter>
+              <BorderBeam duration={8} size={100} />
             </Card>
           </TabsContent>
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

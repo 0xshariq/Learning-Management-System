@@ -78,7 +78,7 @@ export default function FAQPage() {
           </h1>
           <p className="text-muted-foreground max-w-2xl">
             Find answers to common questions about our learning platform. If you
-            can't find what you're looking for, please contact our support team.
+            can&apos;t find what you&apos;re looking for, please contact our support team.
           </p>
         </div>
       </FadeIn>

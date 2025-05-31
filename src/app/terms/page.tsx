@@ -20,7 +20,7 @@ export default function TermsPage() {
           <CardContent className="pt-6">
             <div className="prose prose-sm max-w-none">
               <p>
-                Please read these Terms of Service ("Terms", "Terms of Service") carefully before using our website and
+                Please read these Terms of Service (&quot;Terms&quot;, &quot;Terms of Service&quot;) carefully before using our website and
                 services.
               </p>
 
@@ -87,7 +87,7 @@ export default function TermsPage() {
               <h2 className="text-xl font-semibold mt-6 mb-3">8. Changes to Terms</h2>
               <p>
                 We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a
-                revision is material we will try to provide at least 30 days' notice prior to any new terms taking
+                revision is material we will try to provide at least 30 days notice prior to any new terms taking
                 effect.
               </p>
 

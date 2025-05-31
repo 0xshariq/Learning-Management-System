@@ -269,7 +269,7 @@ export function StudentProfile({ data }: StudentProfileProps) {
                   <CardContent className="text-center py-12">
                     <Star className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <h3 className="text-lg font-medium mb-2">No reviews yet</h3>
-                    <p className="text-muted-foreground">Share your experience by reviewing courses you've taken</p>
+                    <p className="text-muted-foreground">Share your experience by reviewing courses you&apos;ve taken</p>
                   </CardContent>
                 </Card>
               )}

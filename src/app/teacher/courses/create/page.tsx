@@ -32,7 +32,7 @@ const formSchema = z.object({
   priceType: z.enum(["free", "paid"]),
   price: z.coerce.number().min(0).optional(),
   duration: z.string().min(2, {
-    message: "Duration must be specified (e.g., '4 weeks', '10 hours').",
+    message: "Duration must be specified (e.g., &apos;4 weeks&apos;, &apos;10 hours&apos;).",
   }),
   category: z.string().min(1, {
     message: "Please select a category.",
@@ -282,13 +282,13 @@ export default function CreateCoursePage() {
                     <FormLabel>Syllabus*</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Outline the topics and modules covered in your course. Start each week with 'Week 1:', 'Week 2:', etc."
+                        placeholder="Outline the topics and modules covered in your course. Start each week with &apos;Week 1:&apos;, &apos;Week 2:&apos;, etc."
                         className="min-h-32"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Format your syllabus by weeks (e.g., "Week 1: Introduction to the course" followed by bullet
+                      Format your syllabus by weeks (e.g., &quot;Week 1: Introduction to the course&quot; followed by bullet
                       points).
                     </FormDescription>
                     <FormMessage />

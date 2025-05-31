@@ -9,7 +9,7 @@ import { Course as CourseModel } from "@/models/course"
 import { Video as VideoModel } from "@/models/video"
 import { Student } from "@/models/student"
 import { CourseProgress } from "@/models/course-progress"
-import { VideoPlayer } from "@/components/video/video-player"
+import VideoPlayer from "@/components/video/video-player"
 import type mongoose from "mongoose"
 
 // Add proper type definitions
@@ -214,11 +214,16 @@ export default async function LearnPage({ params }: LearnPageProps) {
             {currentVideo.url ? (
               <VideoPlayer
                 videoUrl={currentVideo.url}
-                captionsUrl={currentVideo.captionsUrl}
-                posterUrl={
-                  course.imageUrl || `/placeholder.svg?height=400&width=800&text=${encodeURIComponent(course.name)}`
-                }
                 title={currentVideo.title}
+                videoId={currentVideo._id.toString()}
+                courseId={courseId}
+                description={currentVideo.description || ""}
+                courseVideos={videos.map((v) => ({
+                  id: v._id.toString(),
+                  title: v.title,
+                  position: v.position,
+                  isCurrent: v.isCurrent ?? false,
+                }))}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-white">Video not available</div>

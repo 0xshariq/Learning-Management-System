@@ -1,20 +1,35 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { PasswordInput } from "@/components/ui/password-input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { ShieldCheck } from "lucide-react"
-import { adminValidationSchema } from "@/models/admin"
-import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
-import { z } from "zod"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { ShieldCheck } from "lucide-react";
+import { adminValidationSchema } from "@/models/admin";
+import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter";
+import { z } from "zod";
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 // Extend schema with confirm password
 const signUpSchema = adminValidationSchema
@@ -24,42 +39,42 @@ const signUpSchema = adminValidationSchema
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
+  });
 
-type SignUpFormValues = z.infer<typeof signUpSchema>
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function AdminSignUp() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [adminExists, setAdminExists] = useState(false)
-  const [isChecking, setIsChecking] = useState(true)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [adminExists, setAdminExists] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     // Check if admin already exists
     const checkAdmin = async () => {
       try {
-        const response = await fetch("/api/auth/admin-exists")
-        const data = await response.json()
+        const response = await fetch("/api/auth/admin-exists");
+        const data = await response.json();
 
         if (data.exists) {
-          setAdminExists(true)
+          setAdminExists(true);
           toast({
             title: "Admin Already Exists",
             description: "Only one admin account is allowed in the system.",
             variant: "destructive",
-          })
-          router.push("/admin/signin")
+          });
+          router.push("/admin/signin");
         }
       } catch (error) {
-        console.error("Failed to check admin status:", error)
+        console.error("Failed to check admin status:", error);
       } finally {
-        setIsChecking(false)
+        setIsChecking(false);
       }
-    }
+    };
 
-    checkAdmin()
-  }, [router, toast])
+    checkAdmin();
+  }, [router, toast]);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -69,12 +84,12 @@ export default function AdminSignUp() {
       password: "",
       confirmPassword: "",
     },
-  })
+  });
 
-  const password = form.watch("password")
+  const password = form.watch("password");
 
   async function onSubmit(data: SignUpFormValues) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -88,27 +103,31 @@ export default function AdminSignUp() {
           password: data.password,
           role: "admin",
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to register")
+        const error = await response.json();
+        throw new Error(error.message || "Failed to register");
       }
 
       toast({
         title: "Success",
-        description: "Admin account created successfully. Please check your email to verify your account.",
-      })
+        description:
+          "Admin account created successfully. Please check your email to verify your account.",
+      });
 
-      router.push("/admin/signin")
+      router.push("/admin/signin");
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -121,7 +140,7 @@ export default function AdminSignUp() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   if (adminExists) {
@@ -131,7 +150,9 @@ export default function AdminSignUp() {
           <CardHeader className="text-center">
             <ShieldCheck className="w-12 h-12 mx-auto text-primary mb-4" />
             <CardTitle className="text-2xl">Admin Already Exists</CardTitle>
-            <CardDescription>Only one admin account is allowed in the system.</CardDescription>
+            <CardDescription>
+              Only one admin account is allowed in the system.
+            </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">
             <Link href="/admin/signin">
@@ -140,7 +161,7 @@ export default function AdminSignUp() {
           </CardFooter>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -149,7 +170,9 @@ export default function AdminSignUp() {
         <CardHeader className="text-center">
           <ShieldCheck className="w-12 h-12 mx-auto text-primary mb-4" />
           <CardTitle className="text-2xl">Create Admin Account</CardTitle>
-          <CardDescription>Set up the administrator account for the platform</CardDescription>
+          <CardDescription>
+            Set up the administrator account for the platform
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -208,17 +231,23 @@ export default function AdminSignUp() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating admin account..." : "Create Admin Account"}
+                {isLoading
+                  ? "Creating admin account..."
+                  : "Create Admin Account"}
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Link href="/role" className="text-sm text-muted-foreground hover:text-primary">
+          <Link
+            href="/role"
+            className="text-sm text-muted-foreground hover:text-primary"
+          >
             Back to role selection
           </Link>
         </CardFooter>
+        <BorderBeam duration={8} size={100} />
       </Card>
     </div>
-  )
+  );
 }

@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 // Define a simple schema for sign-in without relying on the model schema
 const signInSchema = z.object({
@@ -115,7 +116,9 @@ export default function TeacherSignIn() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error
+          ? error.message
+          : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -157,7 +160,9 @@ export default function TeacherSignIn() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error
+          ? error.message
+          : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -250,7 +255,7 @@ export default function TeacherSignIn() {
               <DialogHeader>
                 <DialogTitle>Reset Password</DialogTitle>
                 <DialogDescription>
-                  Enter your email address and we'll send you a link to reset
+                  Enter your email address and we&apos;ll send you a link to reset
                   your password.
                 </DialogDescription>
               </DialogHeader>
@@ -286,7 +291,7 @@ export default function TeacherSignIn() {
             </DialogContent>
           </Dialog>
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/teacher/signup" className="text-primary underline">
               Sign up
             </Link>
@@ -298,6 +303,7 @@ export default function TeacherSignIn() {
             Back to role selection
           </Link>
         </CardFooter>
+        <BorderBeam duration={8} size={100} />
       </Card>
     </div>
   );
