@@ -1,19 +1,30 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { useSession, signOut } from "next-auth/react"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { useState } from "react";
+import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Menu, X, User, LogOut, BookOpen, Settings, ChevronDown, BarChart3, Users, PlusCircle } from "lucide-react"
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  BookOpen,
+  Settings,
+  ChevronDown,
+  BarChart3,
+  Users,
+  PlusCircle,
+} from "lucide-react";
 
 // Role-specific navigation configurations
 const roleNavConfigs = {
@@ -39,7 +50,11 @@ const roleNavConfigs = {
     dropdownItems: [
       { href: "/teacher/profile", label: "Profile", icon: User },
       { href: "/teacher/courses", label: "My Courses", icon: BookOpen },
-      { href: "/teacher/courses/create", label: "Create Course", icon: PlusCircle },
+      {
+        href: "/teacher/courses/create",
+        label: "Create Course",
+        icon: PlusCircle,
+      },
       { href: "/teacher/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/teacher/settings", label: "Settings", icon: Settings },
     ],
@@ -59,7 +74,7 @@ const roleNavConfigs = {
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },
-}
+};
 
 const defaultNavConfig = {
   mainNav: [
@@ -68,36 +83,37 @@ const defaultNavConfig = {
     { href: "/about", label: "About" },
   ],
   dropdownItems: [],
-}
+};
 
 export function Navbar() {
-  const { data: session } = useSession()
-  const pathname = usePathname()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   const isActive = (path: string) => {
-    if (path === "/") return pathname === "/"
-    return pathname.startsWith(path)
-  }
+    if (path === "/") return pathname === "/";
+    return pathname.startsWith(path);
+  };
 
   // Get role-specific navigation config
   const navConfig = session?.user?.role
-    ? roleNavConfigs[session.user.role as keyof typeof roleNavConfigs] || defaultNavConfig
-    : defaultNavConfig
+    ? roleNavConfigs[session.user.role as keyof typeof roleNavConfigs] ||
+      defaultNavConfig
+    : defaultNavConfig;
 
   const getProfileLink = () => {
-    if (!session?.user?.role) return "/role"
-    return `/${session.user.role}/profile`
-  }
+    if (!session?.user?.role) return "/role";
+    return `/${session.user.role}/profile`;
+  };
 
   const getDashboardLink = () => {
-    if (!session?.user?.role) return "/role"
-    return `/${session.user.role}/dashboard`
-  }
+    if (!session?.user?.role) return "/role";
+    return `/${session.user.role}/dashboard`;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -141,9 +157,16 @@ export function Navbar() {
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={session.user?.image || ""} />
-                      <AvatarFallback className="text-xs">{session.user?.name?.charAt(0) || "U"}</AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        {session.user?.name?.charAt(0) ||
+                          session.user?.email?.charAt(0)?.toUpperCase() ||
+                          session.user?.role?.charAt(0)?.toUpperCase() ||
+                          "U"}
+                      </AvatarFallback>
                     </Avatar>
-                    <span className="hidden sm:inline">{session.user?.name}</span>
+                    <span className="hidden sm:inline">
+                      {session.user?.name}
+                    </span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -151,7 +174,9 @@ export function Navbar() {
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
                       <p className="font-medium">{session.user?.name}</p>
-                      <p className="w-[200px] truncate text-sm text-muted-foreground">{session.user?.email}</p>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">
+                        {session.user?.email}
+                      </p>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
@@ -190,8 +215,17 @@ export function Navbar() {
           )}
 
           {/* Mobile Menu Toggle */}
-          <Button variant="ghost" size="sm" className="md:hidden" onClick={toggleMenu}>
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden"
+            onClick={toggleMenu}
+          >
+            {isMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -206,7 +240,9 @@ export function Navbar() {
                   key={item.href}
                   href={item.href}
                   className={`text-sm font-medium transition-colors hover:text-primary ${
-                    isActive(item.href) ? "text-primary" : "text-muted-foreground"
+                    isActive(item.href)
+                      ? "text-primary"
+                      : "text-muted-foreground"
                   }`}
                   onClick={toggleMenu}
                 >
@@ -220,11 +256,17 @@ export function Navbar() {
                     <div className="flex items-center gap-2 mb-4">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={session.user?.image || ""} />
-                        <AvatarFallback className="text-xs">{session.user?.name?.charAt(0) || "U"}</AvatarFallback>
+                        <AvatarFallback className="text-xs">
+                          {session.user?.name?.charAt(0) || "U"}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">{session.user?.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{session.user?.role}</p>
+                        <p className="text-sm font-medium">
+                          {session.user?.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {session.user?.role}
+                        </p>
                       </div>
                     </div>
 
@@ -243,8 +285,8 @@ export function Navbar() {
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        signOut({ callbackUrl: "/" })
-                        toggleMenu()
+                        signOut({ callbackUrl: "/" });
+                        toggleMenu();
                       }}
                       className="w-full justify-start text-destructive hover:text-destructive mt-2"
                     >
@@ -276,5 +318,5 @@ export function Navbar() {
         </div>
       )}
     </header>
-  )
+  );
 }

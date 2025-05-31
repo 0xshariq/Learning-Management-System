@@ -16,9 +16,9 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        role: { label: "Role", type: "text" }
+        email: { label: "Email", type: "email", name: "email" },
+        password: { label: "Password", type: "password", name: "password" },
+        role: { label: "Role", type: "text", name: "role" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password || !credentials?.role) {
@@ -136,6 +136,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.name = user.name
         token.isAdmin = user.isAdmin
         token.image = user.image
         token.isBlocked = user.isBlocked
@@ -144,6 +145,7 @@ export const authOptions: NextAuthOptions = {
         console.log("JWT Callback - Setting token:", {
           id: token.id,
           role: token.role,
+          name: user.name,
           email: token.email,
           isAdmin: token.isAdmin,
         })
