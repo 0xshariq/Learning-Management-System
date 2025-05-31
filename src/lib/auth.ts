@@ -167,6 +167,7 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+session.user.name = token.name as string
         session.user.isAdmin = token.isAdmin as boolean
         session.user.image = token.image as string | null
         session.user.isBlocked = token.isBlocked as boolean
@@ -175,6 +176,7 @@ export const authOptions: NextAuthOptions = {
         console.log("Session Callback - Setting session:", {
           id: session.user.id,
           role: session.user.role,
+name: session.user.name,
           email: session.user.email,
           isAdmin: session.user.isAdmin,
         })
