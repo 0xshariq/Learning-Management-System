@@ -18,8 +18,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        role: { label: "Role", type: "text" },
-        twoFactorToken: { label: "2FA Token", type: "text" },
+        role: { label: "Role", type: "text" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password || !credentials?.role) {
@@ -64,10 +63,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Your account has been blocked. Please contact support.")
           }
 
-          // Check if email is verified (for students and teachers)
-          if (credentials.role !== "admin" && !user.isEmailVerified) {
-            throw new Error("Please verify your email before signing in.")
-          }
 
           // Verify password
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
@@ -85,23 +80,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid password")
           }
 
-          // Check 2FA if enabled
-          if (user.twoFactorEnabled) {
-            if (!credentials.twoFactorToken) {
-              throw new Error("2FA_REQUIRED")
-            }
-
-            const verified = speakeasy.totp.verify({
-              secret: user.twoFactorSecret,
-              encoding: "base32",
-              token: credentials.twoFactorToken,
-              window: 2,
-            })
-
-            if (!verified) {
-              throw new Error("Invalid 2FA token")
-            }
-          }
 
           // Reset login attempts on successful login
           user.loginAttempts = 0
@@ -161,8 +139,6 @@ export const authOptions: NextAuthOptions = {
         token.isAdmin = user.isAdmin
         token.image = user.image
         token.isBlocked = user.isBlocked
-        token.isEmailVerified = user.isEmailVerified
-        token.twoFactorEnabled = user.twoFactorEnabled
 
         // Debug log to verify role is being set
         console.log("JWT Callback - Setting token:", {
@@ -192,8 +168,6 @@ export const authOptions: NextAuthOptions = {
         session.user.isAdmin = token.isAdmin as boolean
         session.user.image = token.image as string | null
         session.user.isBlocked = token.isBlocked as boolean
-        session.user.isEmailVerified = token.isEmailVerified as boolean
-        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
 
         // Debug log to verify session is being set correctly
         console.log("Session Callback - Setting session:", {
