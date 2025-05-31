@@ -18,7 +18,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { BorderBeam } from "@/components/magicui/border-beam";
 
 export default function RolePage() {
   const router = useRouter();
@@ -132,7 +131,6 @@ export default function RolePage() {
                   </Button>
                 </p>
               </CardFooter>
-              <BorderBeam duration={8} size={100} />
             </Card>
           </TabsContent>
           <TabsContent value="signup">
@@ -196,7 +194,6 @@ export default function RolePage() {
                   </Button>
                 </p>
               </CardFooter>
-              <BorderBeam duration={8} size={100} />
             </Card>
           </TabsContent>
         </Tabs>
