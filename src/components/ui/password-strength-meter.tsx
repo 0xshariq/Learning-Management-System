@@ -9,85 +9,81 @@ interface PasswordStrengthMeterProps {
   className?: string
 }
 
-interface PasswordRequirement {
-  label: string
-  test: (password: string) => boolean
-  met: boolean
-}
+const BAD_PASSWORDS = [
+  "123456", "password", "123456789", "12345678", "qwerty", "abc123", "111111", "123123", "password1"
+]
 
-// Improved strength calculation with scoring
-function calculateStrength(password: string): { score: number; level: string } {
+const LEVELS = [
+  { label: "Too Weak", color: "bg-red-500", textColor: "text-red-600", description: "Easily guessable" },
+  { label: "Weak", color: "bg-orange-500", textColor: "text-orange-600", description: "Needs improvement" },
+  { label: "Fair", color: "bg-yellow-500", textColor: "text-yellow-600", description: "Still guessable" },
+  { label: "Good", color: "bg-lime-500", textColor: "text-lime-600", description: "Acceptable for most sites" },
+  { label: "Strong", color: "bg-green-500", textColor: "text-green-600", description: "Very secure password" },
+]
+
+function calculateStrength(password: string): { score: number; level: number } {
   let score = 0
 
+  if (BAD_PASSWORDS.includes(password.toLowerCase())) return { score: 0, level: 0 }
+
   if (password.length >= 8) score += 1
-  if (password.length >= 12) score += 1 // bonus for longer passwords
+  if (password.length >= 12) score += 1
   if (/[A-Z]/.test(password)) score += 1
   if (/[a-z]/.test(password)) score += 1
   if (/\d/.test(password)) score += 1
   if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1
   if (/[^A-Za-z0-9]/.test(password)) score += 1 // any non-alphanumeric
 
-  // Level assignment
-  if (score <= 2) return { score, level: "Weak" }
-  if (score <= 4) return { score, level: "Fair" }
-  if (score <= 6) return { score, level: "Good" }
-  return { score, level: "Strong" }
+  // Deduct for repeated characters (e.g. "aaaaaa")
+  if (/^(.)\1+$/.test(password)) score = Math.max(score - 2, 0)
+
+  // Map score to level (0-4)
+  if (score <= 1) return { score, level: 0 }
+  if (score === 2) return { score, level: 1 }
+  if (score === 3) return { score, level: 2 }
+  if (score === 4) return { score, level: 3 }
+  return { score, level: 4 }
 }
 
 export function PasswordStrengthMeter({ password, className }: PasswordStrengthMeterProps) {
-  const requirements: PasswordRequirement[] = [
+  const requirements = [
     {
       label: "At least 8 characters",
-      test: (pwd) => pwd.length >= 8,
       met: password.length >= 8,
     },
     {
       label: "Contains uppercase letter",
-      test: (pwd) => /[A-Z]/.test(pwd),
       met: /[A-Z]/.test(password),
     },
     {
       label: "Contains lowercase letter",
-      test: (pwd) => /[a-z]/.test(pwd),
       met: /[a-z]/.test(password),
     },
     {
       label: "Contains number",
-      test: (pwd) => /\d/.test(pwd),
       met: /\d/.test(password),
     },
     {
       label: "Contains special character",
-      test: (pwd) => /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
       met: /[!@#$%^&*(),.?":{}|<>]/.test(password),
     },
     {
+      label: "Not a common password",
+      met: !BAD_PASSWORDS.includes(password.toLowerCase()),
+    },
+    {
+      label: "No repeated characters",
+      met: !/^(.)\1+$/.test(password) || password.length < 3,
+    },
+    {
       label: "12+ characters (bonus)",
-      test: (pwd) => pwd.length >= 12,
       met: password.length >= 12,
     },
   ]
 
-  const metRequirements = requirements.filter((req) => req.met).length
   const { score, level } = calculateStrength(password)
-  const strengthPercentage = Math.min((score / 7) * 100, 100)
-
-  const getStrengthInfo = () => {
-    switch (level) {
-      case "Weak":
-        return { label: "Weak", color: "bg-red-500", textColor: "text-red-600" }
-      case "Fair":
-        return { label: "Fair", color: "bg-orange-500", textColor: "text-orange-600" }
-      case "Good":
-        return { label: "Good", color: "bg-yellow-500", textColor: "text-yellow-600" }
-      case "Strong":
-        return { label: "Strong", color: "bg-green-500", textColor: "text-green-600" }
-      default:
-        return { label: "Enter password", color: "bg-gray-200", textColor: "text-gray-500" }
-    }
-  }
-
-  const strengthInfo = password ? getStrengthInfo() : { label: "Enter password", color: "bg-gray-200", textColor: "text-gray-500" }
+  const strengthInfo = LEVELS[level]
+  const strengthPercentage = Math.min((level / 4) * 100, 100)
 
   if (!password) return null
 
@@ -104,6 +100,7 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
             style={{ width: `${strengthPercentage}%` }}
           />
         </div>
+        <div className={cn("text-xs", strengthInfo.textColor)}>{strengthInfo.description}</div>
       </div>
 
       <div className="space-y-1">

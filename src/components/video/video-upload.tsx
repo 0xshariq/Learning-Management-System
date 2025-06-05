@@ -162,11 +162,24 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         // Large file: upload directly to Cloudinary
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+        if (!cloudName || !uploadPreset) {
+          toast({
+            title: "Cloudinary config missing",
+            description:
+              "Check your .env.local for NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.",
+            variant: "destructive",
+          });
+          setUploading(false);
+          return;
+        }
+
         const videoFormData = new FormData();
         videoFormData.append("file", videoFile);
         videoFormData.append("upload_preset", uploadPreset!);
-        videoFormData.append("cloud_name", cloudName!);
+
         console.log("cloudName", cloudName, "uploadPreset", uploadPreset);
+
         const videoResponse = await fetch(
           `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
           {
@@ -180,6 +193,7 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         }
 
         const videoData = await videoResponse.json();
+        console.log("Cloudinary response:", videoData);
         videoUrl = videoData.secure_url;
       }
 

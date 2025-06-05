@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: { params: { courseI
 
     // Check if student is enrolled
     const student = await Student.findById(session.user.id)
-    if (!student?.purchasedCourses?.includes(courseId)) {
+    if (!student || !student.purchasedCourses?.includes(courseId)) {
       return NextResponse.json(
         {
           message: "You must be enrolled in this course to leave a review. Please enroll first.",
@@ -119,7 +119,6 @@ export async function POST(request: NextRequest, { params }: { params: { courseI
   } catch (error) {
     console.error("Error creating review:", error)
 
-    // Handle specific MongoDB errors
     if (error instanceof Error) {
       if (error.message.includes("Cast to ObjectId failed")) {
         return NextResponse.json(
@@ -129,7 +128,6 @@ export async function POST(request: NextRequest, { params }: { params: { courseI
           { status: 400 },
         )
       }
-
       if (error.message.includes("duplicate key")) {
         return NextResponse.json(
           {
@@ -160,14 +158,17 @@ export async function GET(request: NextRequest, { params }: { params: { courseId
       return NextResponse.json({ message: "Invalid course ID provided." }, { status: 400 })
     }
 
-    const reviews = await Review.find({ course: courseId }).populate("student", "name").sort({ createdAt: -1 }).lean()
+    const reviews = await Review.find({ course: courseId })
+      .populate("student", "name")
+      .sort({ createdAt: -1 })
+      .lean()
 
     const formattedReviews = reviews.map((review: any) => ({
       _id: review._id.toString(),
       rating: review.rating,
       comment: review.comment,
       student: {
-        _id: review.student._id.toString(),
+        _id: review.student._id?.toString?.() || "",
         name: review.student.name,
       },
       course: review.course.toString(),

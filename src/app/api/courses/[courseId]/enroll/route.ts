@@ -5,7 +5,7 @@ import { dbConnect } from "@/lib/dbConnect"
 import { Course } from "@/models/course"
 import { Student } from "@/models/student"
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: { courseId: string } }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -19,17 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(
         {
           message: "Access denied. Only students can enroll in courses.",
-          userRole: session.user.role, // Debug info
-        },
-        { status: 403 },
-      )
-    }
-
-    // Check if student's email is verified
-    if (!session.user.isEmailVerified) {
-      return NextResponse.json(
-        {
-          message: "Please verify your email before enrolling in courses.",
+          userRole: session.user.role,
         },
         { status: 403 },
       )
@@ -47,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await dbConnect()
 
-    const { courseId } = await params
+    const { courseId } = params
 
     // Validate courseId format
     if (!courseId || typeof courseId !== "string") {
