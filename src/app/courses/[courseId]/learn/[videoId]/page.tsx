@@ -1,130 +1,180 @@
-import { notFound } from "next/navigation"
-import { getServerSession } from "next-auth/next"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, PlayCircle, CheckCircle } from "lucide-react"
-import { dbConnect } from "@/lib/dbConnect"
-import { Course as CourseModel } from "@/models/course"
-import { Video as VideoModel } from "@/models/video"
-import { Student } from "@/models/student"
-import { CourseProgress } from "@/models/course-progress"
-import VideoPlayer from "@/components/video/video-player"
-import type mongoose from "mongoose"
-import { authOptions } from "@/lib/auth"
+import { notFound } from "next/navigation";
+import { getServerSession } from "next-auth/next";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  ChevronLeft,
+  ChevronRight,
+  PlayCircle,
+  CheckCircle,
+} from "lucide-react";
+import { dbConnect } from "@/lib/dbConnect";
+import { Course as CourseModel } from "@/models/course";
+import { Video as VideoModel } from "@/models/video";
+import { Student } from "@/models/student";
+import { CourseProgress } from "@/models/course-progress";
+import VideoPlayer from "@/components/video/video-player";
+import type mongoose from "mongoose";
+import { authOptions } from "@/lib/auth";
 
 // Add proper type definitions
 interface TeacherType {
-  _id: mongoose.Types.ObjectId | string
-  name: string
-  email?: string
+  _id: mongoose.Types.ObjectId | string;
+  name: string;
+  email?: string;
 }
 
 interface VideoType {
-  _id: mongoose.Types.ObjectId | string
-  title: string
-  description?: string
-  url: string
-  course: mongoose.Types.ObjectId | string
-  position: number
-  duration?: string
-  isCurrent?: boolean
-  captionsUrl?: string
+  _id: mongoose.Types.ObjectId | string;
+  title: string;
+  description?: string;
+  url: string;
+  course: mongoose.Types.ObjectId | string;
+  position: number;
+  duration?: string;
+  isCurrent?: boolean;
+  captionsUrl?: string;
 }
 
 interface CourseType {
-  _id: mongoose.Types.ObjectId | string
-  name: string
-  description: string
-  syllabus?: string
-  price: number
-  duration: string
-  teacher: TeacherType
-  imageUrl?: string
-  isPublished: boolean
-  createdAt: string | Date
-  updatedAt: string | Date
+  _id: mongoose.Types.ObjectId | string;
+  name: string;
+  description: string;
+  syllabus?: string;
+  price: number;
+  duration: string;
+  teacher: TeacherType;
+  imageUrl?: string;
+  isPublished: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 interface VideoAndCourseData {
-  currentVideo: VideoType
-  course: CourseType
-  videos: VideoType[]
+  currentVideo: VideoType;
+  course: CourseType;
+  videos: VideoType[];
+}
+interface CurrentVideo extends VideoType {
+  _id: string;
+  course: string;
 }
 
+interface CourseData {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  duration: string;
+  teacher: {
+    _id: string;
+    name: string;
+  };
+  imageUrl: string;
+  syllabus: string;
+  isPublished: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+interface VideoWithCurrent extends VideoType {
+  _id: string;
+  course: string;
+  isCurrent: boolean;
+}
 // Fetch video and course data
-async function getVideoAndCourse(videoId: string, courseId: string): Promise<VideoAndCourseData | null> {
-  await dbConnect()
+async function getVideoAndCourse(
+  videoId: string,
+  courseId: string
+): Promise<VideoAndCourseData | null> {
+  await dbConnect();
 
   try {
-    const video = await VideoModel.findById(videoId).lean<VideoType>()
+    const video = await VideoModel.findById(videoId).lean<VideoType>();
     if (!video || video.course.toString() !== courseId) {
-      return null
+      return null;
     }
 
-    const course = await CourseModel.findById(courseId).populate<{ teacher: TeacherType }>("teacher", "name").lean()
+    const course = await CourseModel.findById(courseId)
+      .populate<{ teacher: TeacherType }>("teacher", "name")
+      .lean();
     if (!course) {
-      return null
+      return null;
     }
 
-    const videos = await VideoModel.find({ course: courseId }).sort({ position: 1 }).lean<VideoType[]>()
+    const videos = await VideoModel.find({ course: courseId })
+      .sort({ position: 1 })
+      .lean<VideoType[]>();
 
     return {
       currentVideo: {
-        ...video,
-        _id: video._id.toString(),
-        course: video.course.toString(),
-      },
+      ...video,
+      _id: video._id.toString(),
+      course: video.course.toString(),
+      } as CurrentVideo,
       course: {
-        _id: course._id.toString(),
-        name: course.name,
-        description: course.description,
-        price: course.price,
-        duration: course.duration,
-        teacher: {
-          _id: course.teacher._id.toString(),
-          name: course.teacher.name,
-        },
-        imageUrl: course.imageUrl || "",
-        syllabus: course.syllabus || "",
-        isPublished: course.isPublished,
-        createdAt: course.createdAt,
-        updatedAt: course.updatedAt,
+      _id: course._id.toString(),
+      name: course.name,
+      description: course.description,
+      price: course.price,
+      duration: course.duration,
+      teacher: {
+        _id: course.teacher._id.toString(),
+        name: course.teacher.name,
       },
-      videos: videos.map((v) => ({
+      imageUrl: course.imageUrl || "",
+      syllabus: course.syllabus || "",
+      isPublished: course.isPublished,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      } as CourseData,
+      videos: videos.map(
+      (v : VideoWithCurrent): VideoWithCurrent => ({
         ...v,
         _id: v._id.toString(),
         course: v.course.toString(),
         isCurrent: v._id.toString() === videoId,
-      })),
-    }
+      })
+      ),
+    } as VideoAndCourseData;
   } catch (error) {
-    console.error("Error fetching video and course:", error)
-    return null
+    console.error("Error fetching video and course:", error);
+    return null;
   }
 }
 
 // Check if the user is enrolled in the course
-async function checkEnrollmentStatus(courseId: string, userId?: string): Promise<boolean> {
-  if (!userId) return false
+async function checkEnrollmentStatus(
+  courseId: string,
+  userId?: string
+): Promise<boolean> {
+  if (!userId) return false;
 
-  await dbConnect()
+  await dbConnect();
 
   try {
-    const student = await Student.findById(userId)
-    return student?.purchasedCourses?.includes(courseId) || false
+    const student = await Student.findById(userId);
+    return student?.purchasedCourses?.includes(courseId) || false;
   } catch (error) {
-    console.error("Error checking enrollment status:", error)
-    return false
+    console.error("Error checking enrollment status:", error);
+    return false;
   }
 }
 
 // Update course progress
-async function updateProgress(userId: string, courseId: string, videoId: string) {
-  await dbConnect()
+async function updateProgress(
+  userId: string,
+  courseId: string,
+  videoId: string
+) {
+  await dbConnect();
 
   try {
-    let progress = await CourseProgress.findOne({ student: userId, course: courseId })
+    let progress = await CourseProgress.findOne({
+      student: userId,
+      course: courseId,
+    });
 
     if (!progress) {
       progress = new CourseProgress({
@@ -132,34 +182,36 @@ async function updateProgress(userId: string, courseId: string, videoId: string)
         course: courseId,
         completedVideos: [],
         percentageCompleted: 0,
-      })
+      });
     }
 
     if (!progress.completedVideos.includes(videoId)) {
-      progress.completedVideos.push(videoId)
+      progress.completedVideos.push(videoId);
     }
 
-    const totalVideos = await VideoModel.countDocuments({ course: courseId })
-    progress.percentageCompleted = (progress.completedVideos.length / totalVideos) * 100
+    const totalVideos = await VideoModel.countDocuments({ course: courseId });
+    progress.percentageCompleted =
+      (progress.completedVideos.length / totalVideos) * 100;
 
-    await progress.save()
-    return progress
+    await progress.save();
+    return progress;
   } catch (error) {
-    console.error("Error updating progress:", error)
-    return null
+    console.error("Error updating progress:", error);
+    return null;
   }
 }
 
 interface LearnPageProps {
   params: {
-    courseId: string
-    videoId: string
-  }
+    courseId: string;
+    videoId: string;
+  };
 }
 
-export default async function LearnPage({ params }: LearnPageProps) {
-  const { courseId, videoId } = params
-  const session = await getServerSession(authOptions)
+export default async function LearnPage({
+  params: { courseId, videoId },
+}: LearnPageProps) {
+  const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
     return (
@@ -170,41 +222,47 @@ export default async function LearnPage({ params }: LearnPageProps) {
           <Button>Sign In</Button>
         </Link>
       </div>
-    )
+    );
   }
 
-  const isEnrolled = await checkEnrollmentStatus(courseId, session.user.id)
+  const isEnrolled = await checkEnrollmentStatus(courseId, session.user.id);
 
   if (!isEnrolled) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-bold mb-4">Enrollment Required</h1>
-        <p className="mb-6">You need to enroll in this course to access the content.</p>
+        <p className="mb-6">
+          You need to enroll in this course to access the content.
+        </p>
         <Link href={`/courses/${courseId}`}>
           <Button>View Course Details</Button>
         </Link>
       </div>
-    )
+    );
   }
 
-  const data = await getVideoAndCourse(videoId, courseId)
+  const data = await getVideoAndCourse(videoId, courseId);
 
   if (!data) {
-    notFound()
+    notFound();
   }
 
-  const { currentVideo, course, videos } = data
+  const { currentVideo, course, videos } = data;
 
-  await updateProgress(session.user.id, courseId, videoId)
+  await updateProgress(session.user.id, courseId, videoId);
 
-  const currentIndex = videos.findIndex((v) => v._id === videoId)
-  const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null
-  const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null
+  const currentIndex = videos.findIndex((v) => v._id === videoId);
+  const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null;
+  const nextVideo =
+    currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null;
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href={`/courses/${courseId}`} className="text-sm text-muted-foreground hover:text-primary">
+        <Link
+          href={`/courses/${courseId}`}
+          className="text-sm text-muted-foreground hover:text-primary"
+        >
           ← Back to course
         </Link>
       </div>
@@ -227,13 +285,19 @@ export default async function LearnPage({ params }: LearnPageProps) {
                 }))}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-white">Video not available</div>
+              <div className="w-full h-full flex items-center justify-center text-white">
+                Video not available
+              </div>
             )}
           </div>
 
           <div>
             <h1 className="text-2xl font-bold mb-2">{currentVideo.title}</h1>
-            {currentVideo.description && <p className="text-muted-foreground">{currentVideo.description}</p>}
+            {currentVideo.description && (
+              <p className="text-muted-foreground">
+                {currentVideo.description}
+              </p>
+            )}
           </div>
 
           <div className="flex justify-between pt-4">
@@ -261,7 +325,9 @@ export default async function LearnPage({ params }: LearnPageProps) {
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted p-4">
               <h2 className="font-semibold">Course Content</h2>
-              <p className="text-sm text-muted-foreground">{videos.length} videos</p>
+              <p className="text-sm text-muted-foreground">
+                {videos.length} videos
+              </p>
             </div>
 
             <div className="divide-y max-h-[500px] overflow-y-auto">
@@ -269,7 +335,9 @@ export default async function LearnPage({ params }: LearnPageProps) {
                 <Link
                   key={video._id.toString()}
                   href={`/courses/${courseId}/learn/${video._id}`}
-                  className={`block ${video.isCurrent ? "bg-accent" : "hover:bg-accent/50"}`}
+                  className={`block ${
+                    video.isCurrent ? "bg-accent" : "hover:bg-accent/50"
+                  }`}
                 >
                   <Card className="rounded-none border-0">
                     <CardContent className="p-4 flex items-center">
@@ -280,7 +348,11 @@ export default async function LearnPage({ params }: LearnPageProps) {
                       )}
                       <div className="overflow-hidden">
                         <h4 className="font-medium truncate">{video.title}</h4>
-                        {video.duration && <p className="text-xs text-muted-foreground">{video.duration}</p>}
+                        {video.duration && (
+                          <p className="text-xs text-muted-foreground">
+                            {video.duration}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -291,5 +363,5 @@ export default async function LearnPage({ params }: LearnPageProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

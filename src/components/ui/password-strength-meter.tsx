@@ -75,10 +75,6 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
       label: "No repeated characters",
       met: !/^(.)\1+$/.test(password) || password.length < 3,
     },
-    {
-      label: "12+ characters (bonus)",
-      met: password.length >= 12,
-    },
   ]
 
   const { score, level } = calculateStrength(password)
