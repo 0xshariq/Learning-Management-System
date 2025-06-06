@@ -269,12 +269,10 @@ export async function DELETE(
     return NextResponse.json({ message: "Failed to delete course" }, { status: 500 })
   }
 }
-// ...existing code...
 
-// PUBLISH/UNPUBLISH a course
 export async function PUT(
   req: Request,
-  { params }: { params: { courseId: string } },
+  context: { params: Promise<{ courseId: string }> },
 ): Promise<NextResponse<{ message: string; isPublished?: boolean }>> {
   try {
     const session = await getServerSession(authOptions);
@@ -284,7 +282,7 @@ export async function PUT(
     }
 
     await dbConnect();
-    const courseId = params.courseId;
+    const { courseId } = await context.params; // <-- await params here
 
     const course = await Course.findById(courseId);
 
