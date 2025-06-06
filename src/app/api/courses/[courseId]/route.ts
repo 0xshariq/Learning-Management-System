@@ -90,7 +90,17 @@ interface UpdateResponse {
   message: string
   course: CourseDocument
 }
-
+interface Video {
+  _id: string
+  title: string
+  description?: string
+  url: string
+  course: string
+  position: number
+  duration?: string
+  createdAt: string | Date
+  updatedAt: string | Date
+}
 // GET a single course by ID
 export async function GET(
   req: Request,
@@ -148,7 +158,7 @@ export async function GET(
       } as TeacherResponse,
       imageUrl: course.imageUrl,
       isPublished: course.isPublished,
-      videos: videos.map((video): VideoResponse => ({
+      videos: videos.map((video: Video): VideoResponse => ({
         _id: video._id.toString(),
         title: video.title,
         description: video.description,
@@ -257,5 +267,51 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting course:", error)
     return NextResponse.json({ message: "Failed to delete course" }, { status: 500 })
+  }
+}
+// ...existing code...
+
+// PUBLISH/UNPUBLISH a course
+export async function PUT(
+  req: Request,
+  { params }: { params: { courseId: string } },
+): Promise<NextResponse<{ message: string; isPublished?: boolean }>> {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    await dbConnect();
+    const courseId = params.courseId;
+
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return NextResponse.json({ message: "Course not found" }, { status: 404 });
+    }
+
+    // Only teacher or admin can publish/unpublish
+    if (course.teacher.toString() !== session.user.id && session.user.role !== "admin") {
+      return NextResponse.json({ message: "You don't have permission to update this course" }, { status: 403 });
+    }
+
+    const { isPublished } = await req.json();
+
+    if (typeof isPublished !== "boolean") {
+      return NextResponse.json({ message: "isPublished must be a boolean" }, { status: 400 });
+    }
+
+    course.isPublished = isPublished;
+    await course.save();
+
+    return NextResponse.json(
+      { message: isPublished ? "Course published" : "Course unpublished", isPublished },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error publishing/unpublishing course:", error);
+    return NextResponse.json({ message: "Failed to update publish status" }, { status: 500 });
   }
 }

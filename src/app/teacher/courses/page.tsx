@@ -1,7 +1,9 @@
-import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,12 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Edit, Eye, EyeOff, Trash2, Video } from "lucide-react";
-import dbConnect from "@/lib/dbConnect";
-import { Course } from "@/models/course";
-import { Video as VideoModel } from "@/models/video";
-import { authOptions } from "@/lib/auth";
+import { toast } from "@/hooks/use-toast";
 
-// Add proper type definitions
 interface TeacherCourse {
   _id: string;
   name: string;
@@ -33,48 +31,100 @@ interface TeacherCourse {
   teacher: string;
   studentsPurchased?: string[];
 }
-interface CourseLean extends Omit<TeacherCourse, "videoCount" | "_id"> {
-  _id: string | any;
-}
-// Update the getTeacherCourses function return type
-async function getTeacherCourses(teacherId: string): Promise<TeacherCourse[]> {
-  await dbConnect();
 
-  try {
-    const courses = await Course.find({ teacher: teacherId })
-      .sort({ createdAt: -1 })
-      .lean<TeacherCourse[]>();
+export default function TeacherCoursesPage() {
+  const [courses, setCourses] = useState<TeacherCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
-    // Get video counts for each course
-
-    const coursesWithVideos: TeacherCourse[] = await Promise.all(
-      courses.map(async (course: CourseLean): Promise<TeacherCourse> => {
-        const videoCount: number = await VideoModel.countDocuments({
-          course: course._id,
+  // Fetch courses for the logged-in teacher
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/courses");
+        if (!res.ok) throw new Error("Failed to fetch courses");
+        const data = await res.json();
+        setCourses(data.courses || []);
+      } catch (err: any) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
         });
-        return {
-          ...course,
-          _id: course._id.toString(),
-          videoCount,
-        };
-      })
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  // Publish/Unpublish handler
+  // ...existing imports...
+  const handleTogglePublish = async (
+    courseId: string,
+    isPublished: boolean
+  ) => {
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isPublished: !isPublished }),
+        });
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "Failed to update publish status");
+        toast({ title: data.message || "Course status updated" });
+        setCourses((prev) =>
+          prev.map((c) =>
+            c._id === courseId ? { ...c, isPublished: !isPublished } : c
+          )
+        );
+      } catch (err: any) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleDelete = async (courseId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this course? This action cannot be undone."
+      )
+    )
+      return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to delete course");
+        toast({ title: data.message || "Course deleted" });
+        setCourses((prev) => prev.filter((c) => c._id !== courseId));
+      } catch (err: any) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <div className="text-lg">Loading your courses...</div>
+      </div>
     );
-
-    return coursesWithVideos;
-  } catch (error) {
-    console.error("Error fetching teacher courses:", error);
-    return [];
   }
-}
-
-export default async function TeacherCoursesPage() {
-  const session = await getServerSession(authOptions);
-
-  console.log("Teacher Courses : ", session?.user);
-  if (!session || !session.user || session.user.role !== "teacher") {
-    redirect("/teacher/signin");
-  }
-  const courses = await getTeacherCourses(session.user.id);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -143,21 +193,28 @@ export default async function TeacherCoursesPage() {
               </CardContent>
 
               <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
+                {/* Edit */}
                 <Link href={`/teacher/courses/${course._id}`}>
                   <Button variant="outline" size="sm">
                     <Edit className="mr-1 h-4 w-4" /> Edit
                   </Button>
                 </Link>
+                {/* Preview */}
                 <Link href={`/courses/${course._id}`}>
                   <Button variant="outline" size="sm">
                     <Eye className="mr-1 h-4 w-4" /> Preview
                   </Button>
                 </Link>
+                {/* Publish/Unpublish */}
                 <Button
                   variant="outline"
                   size="sm"
                   className={
                     course.isPublished ? "text-amber-500" : "text-green-500"
+                  }
+                  disabled={isPending}
+                  onClick={() =>
+                    handleTogglePublish(course._id, course.isPublished)
                   }
                 >
                   {course.isPublished ? (
@@ -170,10 +227,13 @@ export default async function TeacherCoursesPage() {
                     </>
                   )}
                 </Button>
+                {/* Delete */}
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-destructive"
+                  disabled={isPending}
+                  onClick={() => handleDelete(course._id)}
                 >
                   <Trash2 className="mr-1 h-4 w-4" /> Delete
                 </Button>
