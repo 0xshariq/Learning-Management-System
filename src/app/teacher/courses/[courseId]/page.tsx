@@ -131,7 +131,7 @@ interface TeacherCoursePageProps {
 export default async function TeacherCoursePage({
   params,
 }: TeacherCoursePageProps) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSesFsion(authOptions);
 
   if (!session || !session.user || session.user.role !== "teacher") {
     redirect("/role");

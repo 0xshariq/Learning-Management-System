@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -16,6 +15,9 @@ interface VideoUploadModalProps {
   courseId: string
   onSuccess?: () => void
 }
+
+const MAX_SMALL_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_LARGE_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
 export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps) {
   const { toast } = useToast()
@@ -40,10 +42,10 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
         return
       }
 
-      if (file.size > 100 * 1024 * 1024) {
+      if (file.size > MAX_LARGE_FILE_SIZE) {
         toast({
           title: "File too large",
-          description: "Please select a video file smaller than 100MB",
+          description: "Please select a video file smaller than 1GB",
           variant: "destructive",
         })
         return
@@ -53,9 +55,7 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
     }
   }
 
-  const clearVideoFile = () => {
-    setVideoFile(null)
-  }
+  const clearVideoFile = () => setVideoFile(null)
 
   const resetForm = () => {
     setVideoFile(null)
@@ -89,30 +89,101 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
     setUploading(true)
     setUploadProgress(0)
 
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(progressInterval)
-          return 95
-        }
-        return prev + 5
-      })
-    }, 500)
+    let progressInterval: NodeJS.Timeout | undefined
+    if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
+      progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(progressInterval)
+            return 95
+          }
+          return prev + 5
+        })
+      }, 500)
+    }
 
     try {
-      const formData = new FormData()
-      formData.append("file", videoFile)
-      formData.append("courseId", courseId)
-      formData.append("title", title)
-      formData.append("position", position.toString())
+      let videoUrl = ""
 
-      const response = await fetch("/api/cloudinary", {
-        method: "POST",
-        body: formData,
-      })
+      if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
+        // Small file: upload to your backend (which uploads to Cloudinary)
+        const formData = new FormData()
+        formData.append("file", videoFile)
+        formData.append("courseId", courseId)
+        formData.append("title", title)
+        formData.append("description", description)
+        formData.append("position", position.toString())
 
-      if (!response.ok) {
-        throw new Error("Failed to upload video")
+        const response = await fetch("/api/cloudinary", {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to upload video")
+        }
+
+        const videoData = await response.json()
+        videoUrl = videoData.video?.url || videoData.secure_url
+      } else {
+        // Large file: upload directly to Cloudinary with progress
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+
+        if (!cloudName || !uploadPreset) {
+          toast({
+            title: "Cloudinary config missing",
+            description:
+              "Check your .env.local for NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.",
+            variant: "destructive",
+          })
+          setUploading(false)
+          return
+        }
+
+        const videoFormData = new FormData()
+        videoFormData.append("file", videoFile)
+        videoFormData.append("upload_preset", uploadPreset)
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open(
+            "POST",
+            `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
+          )
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 95)
+              setUploadProgress(percent)
+            }
+          }
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText)
+                videoUrl = response.secure_url
+                setUploadProgress(100)
+                resolve()
+              } catch (err) {
+                reject(new Error("Failed to parse Cloudinary response"))
+              }
+            } else {
+              reject(new Error("Failed to upload video to Cloudinary"))
+            }
+          }
+
+          xhr.onerror = () => {
+            reject(new Error("Network error during video upload"))
+          }
+
+          xhr.ontimeout = () => {
+            reject(new Error("Video upload timed out"))
+          }
+
+          xhr.send(videoFormData)
+        })
       }
 
       clearInterval(progressInterval)

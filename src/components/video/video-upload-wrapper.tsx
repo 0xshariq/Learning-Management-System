@@ -2,16 +2,7 @@
 import { useRouter } from "next/navigation";
 import { VideoUpload } from "./video-upload";
 import { toast } from "@/hooks/use-toast";
-interface VideoUploadProps {
-  courseId: string;
-  onSuccess?: (videoData: {
-    id: string;
-    title: string;
-    url: string;
-    duration: string;
-    captionsUrl?: string;
-  }) => void;
-}
+
 export default function VideoUploadWrapper({ courseId }: { courseId: string }) {
   const router = useRouter();
 

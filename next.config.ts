@@ -8,6 +8,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "marketplace.canva.com" },
     ],
   },
-};
-
-export default nextConfig;
+  };
+  
+  export default nextConfig;

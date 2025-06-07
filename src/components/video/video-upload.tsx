@@ -21,10 +21,6 @@ interface VideoUploadProps {
   }) => void;
 }
 
-// You need to set these in your .env.local file at the root of your project:
-// NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
-// NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_unsigned_upload_preset
-
 export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -42,8 +38,6 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
-
-      // Validate file type
       if (!file.type.startsWith("video/")) {
         toast({
           title: "Invalid file type",
@@ -52,8 +46,6 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         });
         return;
       }
-
-      // Validate file size (max 1GB)
       if (file.size > MAX_LARGE_FILE_SIZE) {
         toast({
           title: "File too large",
@@ -62,10 +54,7 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         });
         return;
       }
-
       setVideoFile(file);
-
-      // Try to extract duration from video
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
@@ -80,8 +69,6 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
   const handleCaptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
-
-      // Validate file type
       if (file.name.endsWith(".vtt") || file.type === "text/vtt") {
         setCaptionsFile(file);
       } else {
@@ -99,7 +86,7 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (uploading) return;
     if (!videoFile) {
       toast({
         title: "Error",
@@ -108,7 +95,6 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
       });
       return;
     }
-
     if (!title.trim()) {
       toast({
         title: "Error",
@@ -121,24 +107,25 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
     setUploading(true);
     setUploadProgress(0);
 
-    // Simulate progress updates
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(progressInterval);
-          return 95;
-        }
-        return prev + 5;
-      });
-    }, 500);
+    let progressInterval: NodeJS.Timeout | undefined;
+    if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
+      progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(progressInterval);
+            return 95;
+          }
+          return prev + 5;
+        });
+      }, 500);
+    }
 
     try {
       let videoUrl = "";
       let captionsUrl = "";
 
-      // 1. Upload video
       if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
-        // Small file: upload via API route
+        // Small file: upload to backend API
         const videoFormData = new FormData();
         videoFormData.append("file", videoFile);
         videoFormData.append("courseId", courseId);
@@ -176,34 +163,76 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
 
         const videoFormData = new FormData();
         videoFormData.append("file", videoFile);
-        videoFormData.append("upload_preset", uploadPreset!);
+        videoFormData.append("upload_preset", uploadPreset);
 
-        console.log("cloudName", cloudName, "uploadPreset", uploadPreset);
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            "POST",
+            `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
+          );
 
-        const videoResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
-          {
-            method: "POST",
-            body: videoFormData,
-          }
-        );
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 95);
+              setUploadProgress(percent);
+            }
+          };
 
-        if (!videoResponse.ok) {
-          throw new Error("Failed to upload video to Cloudinary");
-        }
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                videoUrl = response.secure_url;
+                setUploadProgress(100);
+                resolve();
+              } catch (err) {
+                toast({
+                  title: "Cloudinary response error",
+                  description: "Failed to parse Cloudinary response.",
+                  variant: "destructive",
+                });
+                reject(new Error("Failed to parse Cloudinary response"));
+              }
+            } else {
+              toast({
+                title: "Cloudinary upload failed",
+                description: `Status: ${xhr.status} - ${xhr.statusText}`,
+                variant: "destructive",
+              });
+              reject(new Error("Failed to upload video to Cloudinary"));
+            }
+          };
 
-        const videoData = await videoResponse.json();
-        console.log("Cloudinary response:", videoData);
-        videoUrl = videoData.secure_url;
+          xhr.onerror = () => {
+            toast({
+              title: "Network error",
+              description: "A network error occurred during video upload.",
+              variant: "destructive",
+            });
+            reject(new Error("Network error during video upload"));
+          };
+
+          xhr.ontimeout = () => {
+            toast({
+              title: "Timeout",
+              description: "Video upload timed out.",
+              variant: "destructive",
+            });
+            reject(new Error("Video upload timed out"));
+          };
+
+          xhr.send(videoFormData);
+        });
       }
 
-      // 2. Upload captions if provided (always direct to Cloudinary)
+      // Captions upload (if provided)
       if (captionsFile) {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
         const captionsFormData = new FormData();
         captionsFormData.append("file", captionsFile);
-        captionsFormData.append("upload_preset", uploadPreset);
+        captionsFormData.append("upload_preset", uploadPreset!);
 
         const captionsResponse = await fetch(
           `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`,
@@ -219,7 +248,7 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         }
       }
 
-      // 3. Create video record in database
+      // Create video record in DB
       const createResponse = await fetch(`/api/courses/${courseId}/videos`, {
         method: "POST",
         headers: {
@@ -239,9 +268,9 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         throw new Error("Failed to create video record");
       }
 
-      const createdVideo = await createResponse.json();
+      const createdVideoFromDb = await createResponse.json();
 
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
       setUploadProgress(100);
 
       toast({
@@ -249,7 +278,6 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
         description: "Video uploaded successfully",
       });
 
-      // Reset form
       setVideoFile(null);
       setCaptionsFile(null);
       setTitle("");
@@ -257,10 +285,17 @@ export function VideoUpload({ courseId, onSuccess }: VideoUploadProps) {
       setDuration("");
 
       if (onSuccess) {
+        const createdVideo = {
+          id: createdVideoFromDb?._id || createdVideoFromDb?.id || "",
+          title,
+          url: videoUrl,
+          duration,
+          captionsUrl: captionsUrl || undefined,
+        };
         onSuccess(createdVideo);
       }
     } catch (error) {
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
       console.error("Error uploading video:", error);
       toast({
         title: "Error",
