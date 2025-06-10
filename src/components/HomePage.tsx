@@ -66,8 +66,8 @@ export default function Home() {
               <Image
                 src="/public/edulearn-logo.png"
                 alt="Students learning online"
-                width={600}
-                height={400}
+                width={60}
+                height={40}
                 className="rounded-lg shadow-lg"
               />
             </ScaleIn>
@@ -101,7 +101,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-        // ...existing code...
         {/* Featured Categories */}
         <section className="py-16">
           <div className="container mx-auto px-4">
