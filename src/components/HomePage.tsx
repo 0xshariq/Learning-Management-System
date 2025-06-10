@@ -1,70 +1,91 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { ArrowRight, BookOpen, Users, Award, Clock, Globe, CheckCircle } from "lucide-react"
-import { useEffect, useState } from "react"
-import { FadeIn } from "@/components/animations/fade-in"
-import { SlideIn } from "@/components/animations/slide-in"
-import { ScaleIn } from "@/components/animations/scale-in"
-import { StaggerChildren } from "@/components/animations/stagger-children"
-import { TextReveal } from "@/components/animations/text-reveal"
-import { FeaturedReviews } from "@/components/featured-reviews"
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowRight,
+  BookOpen,
+  Users,
+  Award,
+  Clock,
+  Globe,
+  CheckCircle,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { FadeIn } from "@/components/animations/fade-in";
+import { SlideIn } from "@/components/animations/slide-in";
+import { ScaleIn } from "@/components/animations/scale-in";
+import { StaggerChildren } from "@/components/animations/stagger-children";
+import { TextReveal } from "@/components/animations/text-reveal";
+import { FeaturedReviews } from "@/components/featured-reviews";
 
 interface Teacher {
-  name: string
+  name: string;
 }
 
 interface CourseType {
-  _id: string
-  name: string
-  description: string
-  imageUrl?: string
-  price: number
-  teacher?: Teacher
+  _id: string;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  price: number;
+  teacher?: Teacher;
 }
 
 export default function Home() {
-  const [featuredCourses, setFeaturedCourses] = useState<CourseType[]>([])
-  const [loading, setLoading] = useState(true)
+  const [featuredCourses, setFeaturedCourses] = useState<CourseType[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch("/api/courses?isPublished=true")
-        const data = await response.json()
-        setFeaturedCourses(data.courses.slice(0, 3))
+        const response = await fetch("/api/courses?isPublished=true");
+        const data = await response.json();
+        setFeaturedCourses(data.courses.slice(0, 3));
       } catch (error) {
-        console.error("Error fetching courses:", error)
+        console.error("Error fetching courses:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         {/* Hero Section */}
         <section className="py-20 bg-gradient-to-b from-background to-muted">
-          <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-center gap-8 min-h-[70vh]">
-            <div className="flex-1 space-y-6 text-center md:text-left flex flex-col justify-center">
+          <div className="container mx-auto px-4 flex flex-col items-center justify-center gap-8 min-h-[70vh]">
+            <ScaleIn
+              delay={0.2}
+              className="flex-1 flex justify-center items-center"
+            >
+              <Image
+                src="/public/edulearn-logo.png"
+                alt="Students learning online"
+                width={600}
+                height={400}
+                className="rounded-lg shadow-lg"
+              />
+            </ScaleIn>
+            <div className="flex-1 space-y-6 text-center flex flex-col justify-center items-center">
               <TextReveal
                 text="Learn Without Limits"
                 element="h1"
                 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
               />
               <FadeIn delay={0.3}>
-                <p className="text-lg text-muted-foreground max-w-xl mx-auto md:mx-0">
-                  Start, switch, or advance your career with thousands of courses from expert instructors. Learn at your
-                  own pace, anytime, anywhere.
+                <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+                  Start, switch, or advance your career with thousands of
+                  courses from expert instructors. Learn at your own pace,
+                  anytime, anywhere.
                 </p>
               </FadeIn>
               <FadeIn delay={0.5}>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/courses/all">
                     <Button size="lg" className="gap-2">
                       Browse Courses <ArrowRight className="h-4 w-4" />
@@ -78,23 +99,16 @@ export default function Home() {
                 </div>
               </FadeIn>
             </div>
-            <ScaleIn delay={0.2} className="flex-1 flex justify-center items-center">
-              <Image
-                src="/placeholder.svg?height=400&width=600"
-                alt="Students learning online"
-                width={600}
-                height={400}
-                className="rounded-lg shadow-lg"
-              />
-            </ScaleIn>
           </div>
         </section>
-
+        // ...existing code...
         {/* Featured Categories */}
         <section className="py-16">
           <div className="container mx-auto px-4">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">Popular Categories</h2>
+              <h2 className="text-3xl font-bold text-center mb-12">
+                Popular Categories
+              </h2>
             </FadeIn>
             <StaggerChildren className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
               <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
@@ -116,12 +130,13 @@ export default function Home() {
             </StaggerChildren>
           </div>
         </section>
-
         {/* Why Choose Us */}
         <section className="py-16 bg-muted">
           <div className="container mx-auto px-4">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">Why Choose EduLearn</h2>
+              <h2 className="text-3xl font-bold text-center mb-12">
+                Why Choose EduLearn
+              </h2>
             </FadeIn>
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <SlideIn direction="up" delay={0.1}>
@@ -129,7 +144,8 @@ export default function Home() {
                   <CheckCircle className="h-12 w-12 mb-4 text-primary" />
                   <h3 className="text-xl font-bold mb-2">Quality Content</h3>
                   <p className="text-muted-foreground">
-                    Expertly crafted courses designed to help you master new skills quickly and effectively.
+                    Expertly crafted courses designed to help you master new
+                    skills quickly and effectively.
                   </p>
                 </div>
               </SlideIn>
@@ -138,7 +154,8 @@ export default function Home() {
                   <Users className="h-12 w-12 mb-4 text-primary" />
                   <h3 className="text-xl font-bold mb-2">Expert Instructors</h3>
                   <p className="text-muted-foreground">
-                    Learn from industry professionals with years of experience in their respective fields.
+                    Learn from industry professionals with years of experience
+                    in their respective fields.
                   </p>
                 </div>
               </SlideIn>
@@ -147,14 +164,14 @@ export default function Home() {
                   <Clock className="h-12 w-12 mb-4 text-primary" />
                   <h3 className="text-xl font-bold mb-2">Flexible Learning</h3>
                   <p className="text-muted-foreground">
-                    Study at your own pace, on your own schedule, from anywhere in the world.
+                    Study at your own pace, on your own schedule, from anywhere
+                    in the world.
                   </p>
                 </div>
               </SlideIn>
             </div>
           </div>
         </section>
-
         {/* Featured Courses */}
         <section className="py-16">
           <div className="container mx-auto px-4">
@@ -174,7 +191,10 @@ export default function Home() {
             {loading ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="border rounded-lg overflow-hidden bg-card animate-pulse">
+                  <div
+                    key={i}
+                    className="border rounded-lg overflow-hidden bg-card animate-pulse"
+                  >
                     <div className="aspect-video bg-muted" />
                     <div className="p-4 space-y-3">
                       <div className="h-6 bg-muted rounded" />
@@ -198,7 +218,9 @@ export default function Home() {
                     <div className="aspect-video relative bg-muted">
                       <Image
                         src={
-                          course.imageUrl || "/placeholder.svg?height=200&width=400&text=Course" || "/placeholder.svg"
+                          course.imageUrl ||
+                          "/placeholder.svg?height=200&width=400&text=Course" ||
+                          "/placeholder.svg"
                         }
                         alt={course.name}
                         fill
@@ -213,10 +235,13 @@ export default function Home() {
                           : course.description}
                       </p>
                       <p className="text-sm mb-2">
-                        <span className="font-medium">Instructor:</span> {course.teacher?.name || "Unknown"}
+                        <span className="font-medium">Instructor:</span>{" "}
+                        {course.teacher?.name || "Unknown"}
                       </p>
                       <div className="flex justify-between items-center mt-4">
-                        <span className="font-bold">{course.price === 0 ? "Free" : `₹${course.price}`}</span>
+                        <span className="font-bold">
+                          {course.price === 0 ? "Free" : `₹${course.price}`}
+                        </span>
                         <Link href={`/courses/${course._id}`}>
                           <Button size="sm">View Course</Button>
                         </Link>
@@ -227,8 +252,12 @@ export default function Home() {
               </StaggerChildren>
             ) : (
               <FadeIn className="text-center py-10 max-w-md mx-auto">
-                <h3 className="text-lg font-medium mb-2">No courses available yet</h3>
-                <p className="text-muted-foreground mb-6">Be the first to create a course or check back later</p>
+                <h3 className="text-lg font-medium mb-2">
+                  No courses available yet
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Be the first to create a course or check back later
+                </p>
                 <Link href="/teacher/courses/create">
                   <Button>Create a Course</Button>
                 </Link>
@@ -236,26 +265,29 @@ export default function Home() {
             )}
           </div>
         </section>
-
         {/* Student Reviews */}
         <section className="py-16 bg-muted">
           <div className="container mx-auto px-4">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">What Our Students Say</h2>
+              <h2 className="text-3xl font-bold text-center mb-12">
+                What Our Students Say
+              </h2>
             </FadeIn>
             <FeaturedReviews />
           </div>
         </section>
-
         {/* CTA Section */}
         <section className="py-20 bg-primary text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
             <FadeIn>
-              <h2 className="text-3xl font-bold mb-4">Ready to Start Learning?</h2>
+              <h2 className="text-3xl font-bold mb-4">
+                Ready to Start Learning?
+              </h2>
             </FadeIn>
             <FadeIn delay={0.2}>
               <p className="text-lg mb-8 max-w-2xl mx-auto">
-                Join thousands of students who are already learning on our platform. Start your journey today!
+                Join thousands of students who are already learning on our
+                platform. Start your journey today!
               </p>
             </FadeIn>
             <ScaleIn delay={0.4}>
@@ -269,5 +301,5 @@ export default function Home() {
         </section>
       </main>
     </div>
-  )
+  );
 }
