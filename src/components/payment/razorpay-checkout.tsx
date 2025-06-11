@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 interface RazorpayCheckoutProps {
   courseId: string
@@ -30,9 +31,17 @@ interface RazorpayResponse {
   }
 }
 
+type RazorpayHandlerResponse = {
+  razorpay_order_id: string
+  razorpay_payment_id: string
+  razorpay_signature: string
+}
+
 declare global {
   interface Window {
-    Razorpay: any
+    Razorpay: {
+      new (options: object): { open: () => void }
+    }
   }
 }
 
@@ -75,15 +84,16 @@ export default function RazorpayCheckout({
 
       const data: RazorpayResponse = await response.json()
 
-      // Initialize Razorpay
+      // Razorpay options with branding and notes
       const options = {
         key: data.key,
         amount: data.amount,
         currency: data.currency,
         name: "LMS Platform",
         description: `Payment for ${courseName}`,
+        image: "/edulearn-logo.png", // Place your logo in public/
         order_id: data.orderId,
-        handler: async (response: any) => {
+        handler: async (response: RazorpayHandlerResponse) => {
           try {
             // Verify payment on server
             const verifyResponse = await fetch("/api/razorpay", {
@@ -95,7 +105,6 @@ export default function RazorpayCheckout({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                courseId,
               }),
             })
 
@@ -129,8 +138,25 @@ export default function RazorpayCheckout({
           }
         },
         prefill: data.prefill,
+        notes: {
+          course_id: courseId,
+          branding: "Pay securely using Google Pay, PhonePe, UPI or Cards",
+        },
         theme: {
           color: "#3182ce",
+        },
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+        },
+        // Show Google Pay icon and other UPI apps (Razorpay does this automatically on supported devices)
+        // No extra config needed for Google Pay icon
+        modal: {
+          ondismiss: () => {
+            setIsLoading(false)
+          },
         },
       }
 
@@ -162,8 +188,20 @@ export default function RazorpayCheckout({
   }
 
   return (
-    <Button onClick={handlePayment} disabled={isLoading} className="w-full">
-      {isLoading ? "Processing..." : `Pay ₹${price}`}
+    <Button onClick={handlePayment} disabled={isLoading} className="w-full flex items-center justify-center gap-2">
+      {isLoading ? (
+        "Processing..."
+      ) : (
+        <>
+          <Image
+            src="/gpay-icon.svg"
+            alt="Google Pay"
+            className="h-5 w-5"
+            style={{ display: "inline" }}
+          />
+          Pay ₹{price} (UPI, Google Pay, Card)
+        </>
+      )}
     </Button>
   )
 }

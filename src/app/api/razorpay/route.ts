@@ -7,9 +7,8 @@ import { Coupon } from "@/models/coupon"
 import { Student } from "@/models/student"
 import { z } from "zod"
 import crypto from "crypto"
-
-// Initialize Razorpay
 import Razorpay from "razorpay"
+
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -115,7 +114,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId } = body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body
 
     // Verify signature
     const generated_signature = crypto
