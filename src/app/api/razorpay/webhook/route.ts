@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 
-export const config = {
-  api: {
-    bodyParser: false, // Not used in app router, but kept for reference
-  },
-}
+
 
 // Helper to read raw body in Next.js app router
 async function getRawBody(req: NextRequest): Promise<Buffer> {
