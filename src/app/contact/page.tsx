@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Mail, MapPin, Phone } from "lucide-react"
+import {Label} from "@/components/ui/label"
 
 export const metadata: Metadata = {
   title: "Contact Us | Learning Management System",
@@ -35,28 +36,28 @@ export default function ContactPage() {
                 <form className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-medium">
+                      <Label htmlFor="name" className="text-sm font-medium">
                         Name
-                      </label>
+                      </Label>
                       <Input id="name" placeholder="Your name" />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="email" className="text-sm font-medium">
+                      <Label htmlFor="email" className="text-sm font-medium">
                         Email
-                      </label>
+                      </Label>
                       <Input id="email" type="email" placeholder="Your email" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="subject" className="text-sm font-medium">
+                    <Label htmlFor="subject" className="text-sm font-medium">
                       Subject
-                    </label>
+                    </Label>
                     <Input id="subject" placeholder="How can we help you?" />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="message" className="text-sm font-medium">
+                    <Label htmlFor="message" className="text-sm font-medium">
                       Message
-                    </label>
+                    </Label>
                     <Textarea id="message" placeholder="Your message" rows={5} />
                   </div>
                   <Button type="submit" className="w-full md:w-auto">
@@ -78,16 +79,15 @@ export default function ContactPage() {
                   <Mail className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <h3 className="font-medium">Email</h3>
-                    <p className="text-sm text-muted-foreground">support@learningplatform.com</p>
-                    <p className="text-sm text-muted-foreground">info@learningplatform.com</p>
+                    <p className="text-sm text-muted-foreground">khanshariq92213@gmail.com</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <Phone className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <h3 className="font-medium">Phone</h3>
-                    <p className="text-sm text-muted-foreground">+1 (555) 123-4567</p>
-                    <p className="text-sm text-muted-foreground">Mon-Fri, 9am-5pm EST</p>
+                    <p className="text-sm text-muted-foreground">+91 7208179779</p>
+                    <p className="text-sm text-muted-foreground">24/7 Available</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -95,11 +95,7 @@ export default function ContactPage() {
                   <div>
                     <h3 className="font-medium">Address</h3>
                     <p className="text-sm text-muted-foreground">
-                      123 Learning Street
-                      <br />
-                      Education City, ED 12345
-                      <br />
-                      United States
+                      Mumbai , India - 400612
                     </p>
                   </div>
                 </div>

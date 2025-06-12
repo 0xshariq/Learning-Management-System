@@ -2,34 +2,36 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import dbConnect from "@/lib/dbConnect"
 import { Course } from "@/models/course"
-import { Payment } from "@/models/payment"
+import { Payment, paymentValidationSchema } from "@/models/payment"
 import { Coupon } from "@/models/coupon"
 import { Student } from "@/models/student"
 import { z } from "zod"
 import crypto from "crypto"
 import Razorpay from "razorpay"
-
+import { authOptions } from "@/lib/auth"
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 })
 
-const paymentSchema = z.object({
-  courseId: z.string(),
-  couponCode: z.string().optional(),
-})
-
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const validation = paymentSchema.safeParse(body)
+    // Use the paymentValidationSchema from the model for validation
+    const validation = paymentValidationSchema
+      .omit({ student: true, course: true, amount: true, razorpayPaymentId: true, status: true })
+      .extend({
+        courseId: z.string(),
+        couponCode: z.string().optional(),
+      })
+      .safeParse(body)
 
     if (!validation.success) {
       return NextResponse.json({ message: "Invalid input data", errors: validation.error.format() }, { status: 400 })
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
 
     await dbConnect()
 
-    const { courseId, couponCode } = validation.data
+    const { courseId, couponCode, paymentOption, cardBrand } = validation.data
     const userId = session.user.id
 
     // Get course details
@@ -77,6 +79,8 @@ export async function POST(req: Request) {
         courseId: courseId,
         userId: userId,
         couponId: coupon ? coupon._id.toString() : null,
+        paymentOption: paymentOption || "upi",
+        cardBrand: paymentOption === "card" ? cardBrand || "visa" : undefined,
       },
     }
 
@@ -107,14 +111,14 @@ export async function POST(req: Request) {
 // Verify payment
 export async function PUT(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentOption, cardBrand } = body
 
     // Verify signature
     const generated_signature = crypto
@@ -141,6 +145,8 @@ export async function PUT(req: Request) {
     const orderUserId = notes.userId
     const orderCourseId = notes.courseId
     const orderCouponId = notes.couponId
+    const orderPaymentOption = notes.paymentOption
+    const orderCardBrand = notes.cardBrand
 
     if (!orderUserId || !orderCourseId) {
       return NextResponse.json({ message: "Invalid order data" }, { status: 400 })
@@ -150,10 +156,12 @@ export async function PUT(req: Request) {
     const payment = await Payment.create({
       student: orderUserId,
       course: orderCourseId,
-      amount: Number(order.amount) / 100, // Convert back from paise to rupees
+      amount: Number(order.amount) / 100,
       razorpayPaymentId: razorpay_payment_id,
       razorpayOrderId: razorpay_order_id,
       couponApplied: orderCouponId || undefined,
+      paymentOption: orderPaymentOption || paymentOption || "upi",
+      cardBrand: orderCardBrand || cardBrand,
       status: "completed",
     })
 
@@ -174,6 +182,8 @@ export async function PUT(req: Request) {
           id: payment._id,
           amount: payment.amount,
           status: payment.status,
+          paymentOption: payment.paymentOption,
+          cardBrand: payment.cardBrand,
         },
       },
       { status: 200 },
