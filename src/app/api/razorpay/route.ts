@@ -71,17 +71,21 @@ export async function POST(req: Request) {
     }
 
     // Create Razorpay order
+    const notes: Record<string, string | null> = {
+      courseId: courseId,
+      userId: userId,
+      couponId: coupon ? coupon._id.toString() : null,
+      paymentOption: paymentOption || "upi",
+    }
+    if (paymentOption === "card" && cardBrand) {
+      notes.cardBrand = cardBrand
+    }
+
     const options = {
-      amount: Math.round(amount * 100), // Razorpay expects amount in smallest currency unit (paise)
+      amount: Math.round(amount * 100), // Razorpay expects amount in smallest currency unit (paise) in INR only
       currency: "INR",
       receipt: `receipt_order_${Date.now()}`,
-      notes: {
-        courseId: courseId,
-        userId: userId,
-        couponId: coupon ? coupon._id.toString() : null,
-        paymentOption: paymentOption || "upi",
-        cardBrand: paymentOption === "card" ? cardBrand || "visa" : undefined,
-      },
+      notes,
     }
 
     const order = await razorpay.orders.create(options)
@@ -89,7 +93,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         order,
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: process.env.RAZORPAY_KEY_ID,
         amount: Math.round(amount * 100),
         currency: "INR",
         name: course.name,

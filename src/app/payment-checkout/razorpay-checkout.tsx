@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import Image from "next/image"
-import { paymentValidationSchema } from "@/models/payment"
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
+import { paymentValidationSchema } from "@/models/payment";
 
 type RazorpayHandlerResponse = {
-  razorpay_order_id: string
-  razorpay_payment_id: string
-  razorpay_signature: string
-}
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
 
 declare global {
   interface Window {
     Razorpay: {
-      new (options: object): { open: () => void }
-    }
+      new (options: object): { open: () => void };
+    };
   }
 }
 
@@ -25,43 +25,39 @@ const paymentOptions = [
   {
     value: "upi",
     label: "UPI / Google Pay",
-    icon: "/gpay-icon.svg",
   },
   {
     value: "card",
     label: "Credit/Debit Card",
-    icon: "/card-icon.svg",
     brands: [
-      { value: "visa", label: "Visa", icon: "/visa.svg" },
-      { value: "mastercard", label: "MasterCard", icon: "/mastercard.svg" },
-      { value: "rupay", label: "RuPay", icon: "/rupay.svg" },
-      { value: "amex", label: "Amex", icon: "/amex.svg" },
+      { value: "visa", label: "Visa" },
+      { value: "mastercard", label: "MasterCard" },
+      { value: "rupay", label: "RuPay" },
+      { value: "amex", label: "Amex" },
     ],
   },
   {
     value: "netbanking",
     label: "Netbanking",
-    icon: "/netbanking-icon.svg",
   },
   {
     value: "wallet",
     label: "Wallet",
-    icon: "/wallet-icon.svg",
   },
-]
+];
 
 export default function PaymentCheckoutPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const { toast } = useToast()
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const courseId = searchParams.get("courseId") || ""
-  const courseName = searchParams.get("courseName") || ""
-  const price = Number(searchParams.get("price") || 0)
+  const courseId = searchParams.get("courseId") || "";
+  const courseName = searchParams.get("courseName") || "";
+  const price = Number(searchParams.get("price") || 0);
 
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedOption, setSelectedOption] = useState("upi")
-  const [selectedCardBrand, setSelectedCardBrand] = useState("visa")
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedOption, setSelectedOption] = useState("upi");
+  const [selectedCardBrand, setSelectedCardBrand] = useState("visa");
 
   useEffect(() => {
     if (!courseId || !courseName || !price) {
@@ -69,22 +65,28 @@ export default function PaymentCheckoutPage() {
         title: "Invalid Payment Link",
         description: "Missing course information. Please try again.",
         variant: "destructive",
-      })
-      router.push("/")
+      });
+      router.push("/");
     }
     // eslint-disable-next-line
-  }, [])
+  }, []);
 
   const handlePayment = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       if (!window.Razorpay) {
-        await loadRazorpayScript()
+        await loadRazorpayScript();
       }
 
       // Validate payment data using the schema (optional, for frontend safety)
       const validation = paymentValidationSchema
-        .omit({ student: true, course: true, amount: true, razorpayPaymentId: true, status: true })
+        .omit({
+          student: true,
+          course: true,
+          amount: true,
+          razorpayPaymentId: true,
+          status: true,
+        })
         .extend({
           courseId: paymentValidationSchema.shape.course,
         })
@@ -92,16 +94,16 @@ export default function PaymentCheckoutPage() {
           courseId,
           paymentOption: selectedOption,
           cardBrand: selectedOption === "card" ? selectedCardBrand : undefined,
-        })
+        });
 
       if (!validation.success) {
         toast({
           title: "Invalid Payment Data",
           description: "Please select a valid payment option.",
           variant: "destructive",
-        })
-        setIsLoading(false)
-        return
+        });
+        setIsLoading(false);
+        return;
       }
 
       const response = await fetch("/api/razorpay", {
@@ -114,19 +116,19 @@ export default function PaymentCheckoutPage() {
           paymentOption: selectedOption,
           cardBrand: selectedOption === "card" ? selectedCardBrand : undefined,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to create payment order")
+        throw new Error("Failed to create payment order");
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       const options = {
         key: data.key,
         amount: data.amount,
         currency: data.currency,
-        name: "LMS Platform",
+        name: "EduLearn Platform",
         description: `Payment for ${courseName}`,
         image: "/edulearn-logo.png",
         order_id: data.orderId,
@@ -142,27 +144,31 @@ export default function PaymentCheckoutPage() {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 paymentOption: selectedOption,
-                cardBrand: selectedOption === "card" ? selectedCardBrand : undefined,
+                cardBrand:
+                  selectedOption === "card" ? selectedCardBrand : undefined,
               }),
-            })
+            });
 
             if (!verifyResponse.ok) {
-              throw new Error("Payment verification failed")
+              throw new Error("Payment verification failed");
             }
 
             toast({
               title: "Payment Successful",
               description: "You have successfully enrolled in the course",
-            })
+            });
 
-            router.push(`/courses/${courseId}`)
-            router.refresh()
+            router.push(`/courses/${courseId}`);
+            router.refresh();
           } catch (error) {
             toast({
               title: "Payment Error",
-              description: error instanceof Error ? error.message : "An error occurred during payment verification",
+              description:
+                error instanceof Error
+                  ? error.message
+                  : "An error occurred during payment verification",
               variant: "destructive",
-            })
+            });
           }
         },
         prefill: data.prefill,
@@ -183,98 +189,116 @@ export default function PaymentCheckoutPage() {
         },
         modal: {
           ondismiss: () => {
-            setIsLoading(false)
+            setIsLoading(false);
           },
         },
-      }
+      };
 
-      const razorpay = new window.Razorpay(options)
-      razorpay.open()
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error) {
       toast({
         title: "Payment Error",
-        description: error instanceof Error ? error.message : "An error occurred while processing the payment", 
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while processing the payment",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const loadRazorpayScript = () => {
     return new Promise<void>((resolve) => {
-      const script = document.createElement("script")
-      script.src = "https://checkout.razorpay.com/v1/checkout.js"
-      script.onload = () => resolve()
-      document.body.appendChild(script)
-    })
-  }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve();
+      document.body.appendChild(script);
+    });
+  };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4 text-center">Checkout for {courseName}</h2>
-      <div className="mb-4 flex flex-wrap gap-3 justify-center">
-        {paymentOptions.map((option) => (
-          <Button
-            key={option.value}
-            type="button"
-            className={`flex items-center gap-2 border rounded-lg px-4 py-2 transition-colors ${
-              selectedOption === option.value
-                ? "border-primary bg-primary/10"
-                : "border-muted bg-background"
-            }`}
-            onClick={() => setSelectedOption(option.value)}
-            disabled={isLoading}
-          >
-            <Image src={option.icon} alt={option.label} width={24} height={24} />
-            <span>{option.label}</span>
-          </Button>
-        ))}
-      </div>
-
-      {selectedOption === "card" && (
-        <div className="mb-4 flex flex-wrap gap-3 justify-center">
-          {paymentOptions
-            .find((opt) => opt.value === "card")!
-            .brands!.map((brand) => (
-              <Button
-                key={brand.value}
-                type="button"
-                className={`flex items-center gap-2 border rounded-lg px-4 py-2 transition-colors ${
-                  selectedCardBrand === brand.value
-                    ? "border-primary bg-primary/10"
-                    : "border-muted bg-background"
+    <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center py-10">
+      <div className="w-full max-w-xl bg-[#181818] rounded-xl shadow-lg p-8">
+        <h2 className="text-3xl font-bold mb-8 text-center text-white">
+          Checkout for {courseName}
+        </h2>
+        <div className="mb-8 flex flex-wrap gap-4 justify-center">
+          {paymentOptions.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              className={`flex items-center gap-2 border-2 rounded-lg px-6 py-3 font-semibold text-lg transition-colors
+                ${
+                  selectedOption === option.value
+                    ? "border-primary bg-primary/20 text-white"
+                    : "border-gray-700 bg-[#222] text-gray-300 hover:border-primary hover:text-white"
                 }`}
-                onClick={() => setSelectedCardBrand(brand.value)}
-                disabled={isLoading}
-              >
-                <Image src={brand.icon} alt={brand.label} width={24} height={24} />
-                <span>{brand.label}</span>
-              </Button>
-            ))}
+              onClick={() => setSelectedOption(option.value)}
+              disabled={isLoading}
+              style={{ minWidth: 180 }}
+            >
+              <span>{option.label}</span>
+            </Button>
+          ))}
         </div>
-      )}
 
-      <Button onClick={handlePayment} disabled={isLoading} className="w-full flex items-center justify-center gap-2">
-        {isLoading ? (
-          "Processing..."
-        ) : (
-          <>
-            <Image
-              src="/edulearn-logo.png"
-              alt="LMS Logo"
-              className="h-5 w-5"
-              width={20}
-              height={20}
-              style={{ display: "inline" }}
-            />
-            Pay ₹{price} ({selectedOption === "card"
-              ? paymentOptions.find(opt => opt.value === "card")!.brands!.find(b => b.value === selectedCardBrand)?.label
-              : paymentOptions.find(opt => opt.value === selectedOption)?.label
-            })
-          </>
+        {selectedOption === "card" && (
+          <div className="mb-8 flex flex-wrap gap-4 justify-center">
+            {paymentOptions
+              .find((opt) => opt.value === "card")!
+              .brands!.map((brand) => (
+                <button
+                  key={brand.value}
+                  type="button"
+                  className={`flex items-center gap-2 border-2 rounded-lg px-5 py-2 font-medium text-base transition-colors
+                    ${
+                      selectedCardBrand === brand.value
+                        ? "border-primary bg-primary/20 text-white"
+                        : "border-gray-700 bg-[#222] text-gray-300 hover:border-primary hover:text-white"
+                    }`}
+                  onClick={() => setSelectedCardBrand(brand.value)}
+                  disabled={isLoading}
+                  style={{ minWidth: 120 }}
+                >
+                  <span>{brand.label}</span>
+                </button>
+              ))}
+          </div>
         )}
-      </Button>
+
+        <Button
+          onClick={handlePayment}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-2 text-lg font-semibold py-6 bg-[#ccc] text-black hover:bg-[#bbb]"
+        >
+          {isLoading ? (
+            "Processing..."
+          ) : (
+            <>
+              <Image
+                src="/edulearn-logo.png"
+                alt="LMS Logo"
+                className="h-6 w-6"
+                width={24}
+                height={24}
+              />
+              <span>
+                Pay ₹{price} (
+                {selectedOption === "card"
+                  ? paymentOptions
+                      .find((opt) => opt.value === "card")!
+                      .brands!.find((b) => b.value === selectedCardBrand)?.label
+                  : paymentOptions.find((opt) => opt.value === selectedOption)
+                      ?.label}
+                )
+              </span>
+            </>
+          )}
+        </Button>
+      </div>
     </div>
-  )
+  );
 }
