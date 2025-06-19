@@ -6,10 +6,17 @@ import mongoose from "mongoose";
 // Create a new sale for a course
 export async function POST(
   req: NextRequest,
-  context: { params: { courseId: string } }
+  context: { params: { courseId?: string } }
 ) {
   await dbConnect();
-  const { courseId } = context.params;
+  const { courseId } = await context.params;
+
+  if (!courseId) {
+    return NextResponse.json(
+      { success: false, error: "Missing courseId in params" },
+      { status: 400 }
+    );
+  }
 
   try {
     const body = await req.json();
@@ -24,8 +31,13 @@ export async function POST(
     }
 
     const sale = await Sale.create(parsed.data);
+    // Populate course and teacher for the response
+    const populatedSale = await Sale.findById(sale._id)
+      .populate("course")
+      .populate("teacher")
+      .lean();
 
-    return NextResponse.json({ success: true, sale }, { status: 201 });
+    return NextResponse.json({ success: true, sale: populatedSale }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Internal server error" },
@@ -37,13 +49,23 @@ export async function POST(
 // Get all sales for a course
 export async function GET(
   req: NextRequest,
-  context: { params: { courseId: string } }
+  context: { params: { courseId?: string } }
 ) {
   await dbConnect();
-  const { courseId } = context.params;
+  const { courseId } = await context.params;
+
+  if (!courseId) {
+    return NextResponse.json(
+      { success: false, error: "Missing courseId in params" },
+      { status: 400 }
+    );
+  }
 
   try {
-    const sales = await Sale.find({ course: courseId }).lean();
+    const sales = await Sale.find({ course: courseId })
+      .populate("course")
+      .populate("teacher")
+      .lean();
     return NextResponse.json({ success: true, sales }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
@@ -56,10 +78,17 @@ export async function GET(
 // Update a sale by ID
 export async function PATCH(
   req: NextRequest,
-  context: { params: { courseId: string } }
+  context: { params: { courseId?: string } }
 ) {
   await dbConnect();
-  const { courseId } = context.params;
+  const { courseId } = await context.params;
+
+  if (!courseId) {
+    return NextResponse.json(
+      { success: false, error: "Missing courseId in params" },
+      { status: 400 }
+    );
+  }
 
   try {
     const body = await req.json();
@@ -72,7 +101,6 @@ export async function PATCH(
       );
     }
 
-    // Optionally validate updateData with Zod (partial)
     const parsed = salesSchema.partial().safeParse(updateData);
     if (!parsed.success) {
       return NextResponse.json(
@@ -85,7 +113,10 @@ export async function PATCH(
       { _id: id, course: courseId },
       parsed.data,
       { new: true }
-    );
+    )
+      .populate("course")
+      .populate("teacher")
+      .lean();
 
     if (!sale) {
       return NextResponse.json(
@@ -106,10 +137,17 @@ export async function PATCH(
 // Delete a sale by ID
 export async function DELETE(
   req: NextRequest,
-  context: { params: { courseId: string } }
+  context: { params: { courseId?: string } }
 ) {
   await dbConnect();
-  const { courseId } = context.params;
+  const { courseId } = await context.params;
+
+  if (!courseId) {
+    return NextResponse.json(
+      { success: false, error: "Missing courseId in params" },
+      { status: 400 }
+    );
+  }
 
   try {
     const body = await req.json();
@@ -122,7 +160,10 @@ export async function DELETE(
       );
     }
 
-    const sale = await Sale.findOneAndDelete({ _id: id, course: courseId });
+    const sale = await Sale.findOneAndDelete({ _id: id, course: courseId })
+      .populate("course")
+      .populate("teacher")
+      .lean();
 
     if (!sale) {
       return NextResponse.json(
@@ -131,7 +172,7 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true, message: "Sale deleted" }, { status: 200 });
+    return NextResponse.json({ success: true, message: "Sale deleted", sale }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Internal server error" },

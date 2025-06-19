@@ -312,7 +312,7 @@ interface CourseDetailPageProps {
 }
 
 export default async function CourseDetailPage(props: CourseDetailPageProps) {
-  const { courseId } = props.params;
+  const { courseId } = await props.params;
   const course = await getCourseDetails(courseId);
   const session = await getServerSession(authOptions);
 

@@ -22,13 +22,28 @@ export default function CreateSaleForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setFormError(null);
+
+    // Validation: expiryTime must be present and after saleTime
+    if (!expiryTime) {
+      setFormError("Expiry time is required.");
+      return;
+    }
+    if (!saleTime) {
+      setFormError("Sale start time is required.");
+      return;
+    }
+    if (new Date(expiryTime) <= new Date(saleTime)) {
+      setFormError("Expiry time must be after sale start time.");
+      return;
+    }
+
+    setLoading(true);
 
     const payload = {
       amount: Number(amount),
-      saleTime: saleTime ? new Date(saleTime) : new Date(),
-      expiryTime: expiryTime ? new Date(expiryTime) : undefined,
+      saleTime: new Date(saleTime).toISOString(),
+      expiryTime: new Date(expiryTime).toISOString(),
       platform: platform || undefined,
       currency: currency || "INR",
       notes: notes || undefined,
@@ -93,6 +108,7 @@ export default function CreateSaleForm() {
             name="expiryTime"
             value={expiryTime}
             onChange={e => setExpiryTime(e.target.value)}
+            required
             className="mt-1 bg-[#222] border-[#333] text-white"
           />
         </div>
