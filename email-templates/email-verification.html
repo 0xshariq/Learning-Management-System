@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - EduLearn</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">🎓 EduLearn</h1>
+            <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Learning Management System</p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 40px 30px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 40px;">📧</span>
+                </div>
+                <h2 style="color: #1f2937; margin: 0; font-size: 28px; font-weight: bold;">Verify Your Email Address</h2>
+                <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Complete your account setup</p>
+            </div>
+
+            <div style="background: #faf5ff; border-left: 4px solid #8b5cf6; padding: 20px; margin: 30px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #581c87; font-size: 16px; line-height: 1.6;">
+                    Welcome to EduLearn, <strong>{{userName}}</strong>! 🎉
+                </p>
+                <p style="color: #581c87; font-size: 16px; line-height: 1.6; margin: 15px 0 0 0;">
+                    You're almost ready to start your learning journey as a <strong>{{userRole}}</strong>. 
+                    Please verify your email address to activate your account.
+                </p>
+            </div>
+
+            <!-- Verification Button -->
+            <div style="text-align: center; margin: 40px 0;">
+                <a href="{{verificationUrl}}" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); transition: all 0.3s ease;">
+                    ✅ Verify Email Address
+                </a>
+            </div>
+
+            <!-- What's Next -->
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 20px; border-radius: 8px; margin: 30px 0;">
+                <div style="display: flex; align-items: flex-start;">
+                    <span style="font-size: 20px; margin-right: 12px;">🚀</span>
+                    <div>
+                        <h4 style="color: #0c4a6e; margin: 0 0 12px 0; font-size: 16px; font-weight: bold;">What's Next?</h4>
+                        <p style="color: #0c4a6e; margin: 0 0 12px 0; font-size: 14px; line-height: 1.6;">
+                            After verifying your email, you'll be able to:
+                        </p>
+                        <ul style="color: #0c4a6e; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
+                            {{#if isStudent}}
+                            <li>Browse and enroll in courses</li>
+                            <li>Track your learning progress</li>
+                            <li>Earn certificates</li>
+                            <li>Join the learning community</li>
+                            {{/if}}
+                            {{#if isTeacher}}
+                            <li>Create and publish courses</li>
+                            <li>Upload course videos</li>
+                            <li>Manage your students</li>
+                            <li>Track your earnings</li>
+                            {{/if}}
+                            {{#if isAdmin}}
+                            <li>Manage platform users</li>
+                            <li>Monitor course quality</li>
+                            <li>View platform analytics</li>
+                            <li>Configure system settings</li>
+                            {{/if}}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expiration Notice -->
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 30px 0;">
+                <div style="display: flex; align-items: flex-start;">
+                    <span style="font-size: 20px; margin-right: 12px;">⏰</span>
+                    <div>
+                        <h4 style="color: #92400e; margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">Time Sensitive</h4>
+                        <p style="color: #92400e; margin: 0; font-size: 14px; line-height: 1.5;">
+                            This verification link will expire in <strong>24 hours</strong>. 
+                            If the link expires, you can request a new one from the sign-in page.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternative Link -->
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0;">
+                <p style="color: #6b7280; margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Can't click the button? Copy and paste this link:</p>
+                <p style="color: #8b5cf6; margin: 0; font-size: 14px; word-break: break-all;">{{verificationUrl}}</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #1f2937; padding: 30px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #ffffff; margin: 0 0 10px 0; font-size: 18px;">Questions?</h3>
+                <p style="color: #9ca3af; margin: 0; font-size: 14px;">
+                    Need help getting started? Contact us at 
+                    <a href="mailto:support@edulearn.com" style="color: #60a5fa; text-decoration: none;">support@edulearn.com</a>
+                </p>
+            </div>
+            
+            <div style="border-top: 1px solid #374151; padding-top: 20px;">
+                <p style="color: #9ca3af; margin: 0; font-size: 12px;">
+                    © 2024 EduLearn. All rights reserved.<br>
+                    This email was sent to {{userEmail}}
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
