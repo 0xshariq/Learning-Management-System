@@ -14,7 +14,6 @@ export default function CreateSaleForm() {
   const [amount, setAmount] = useState("");
   const [saleTime, setSaleTime] = useState("");
   const [expiryTime, setExpiryTime] = useState("");
-  const [platform, setPlatform] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,7 +43,6 @@ export default function CreateSaleForm() {
       amount: Number(amount),
       saleTime: new Date(saleTime).toISOString(),
       expiryTime: new Date(expiryTime).toISOString(),
-      platform: platform || undefined,
       currency: currency || "INR",
       notes: notes || undefined,
     };
@@ -59,13 +57,8 @@ export default function CreateSaleForm() {
     setLoading(false);
 
     if (res.ok) {
-      router.refresh();
-      setAmount("");
-      setSaleTime("");
-      setExpiryTime("");
-      setPlatform("");
-      setCurrency("INR");
-      setNotes("");
+      // Redirect to the course detail page after successful creation
+      router.push(`/courses/${courseId}`);
     } else {
       setFormError(data.error || "Failed to create sale");
     }
@@ -109,18 +102,6 @@ export default function CreateSaleForm() {
             value={expiryTime}
             onChange={e => setExpiryTime(e.target.value)}
             required
-            className="mt-1 bg-[#222] border-[#333] text-white"
-          />
-        </div>
-        <div>
-          <Label htmlFor="platform" className="text-white">Platform</Label>
-          <Input
-            id="platform"
-            type="text"
-            name="platform"
-            value={platform}
-            onChange={e => setPlatform(e.target.value)}
-            placeholder="web, mobile, etc."
             className="mt-1 bg-[#222] border-[#333] text-white"
           />
         </div>

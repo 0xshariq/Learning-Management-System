@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Loader2, CheckCircle, BookOpen } from "lucide-react"
+import { SalePriceBlock, SaleTimer } from "@/components/courses/course-sales"
+
+interface SaleData {
+  _id: string
+  amount: number
+  saleTime: string
+  expiryTime?: string
+  notes?: string
+}
 
 interface EnrollmentSectionProps {
   courseId: string
@@ -15,6 +24,7 @@ interface EnrollmentSectionProps {
   isEnrolled: boolean
   hasVideos: boolean
   firstVideoId?: string
+  sale?: SaleData | null // Pass sale as prop for course-specific sale
 }
 
 export function EnrollmentSection({
@@ -24,6 +34,7 @@ export function EnrollmentSection({
   isEnrolled,
   hasVideos,
   firstVideoId,
+  sale,
 }: EnrollmentSectionProps) {
   const { data: session } = useSession()
   const [isEnrolling, setIsEnrolling] = useState(false)
@@ -85,11 +96,10 @@ export function EnrollmentSection({
   }
 
   const handlePaidEnrollment = () => {
-    // Redirect to payment checkout page with course details as query params
     router.push(
       `/payment-checkout?courseId=${encodeURIComponent(courseId)}&courseName=${encodeURIComponent(
         courseName
-      )}&price=${price}`
+      )}&price=${sale ? sale.amount : price}`
     )
   }
 
@@ -117,13 +127,21 @@ export function EnrollmentSection({
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <div className="text-3xl font-bold mb-2">{price === 0 ? "Free" : `₹${price}`}</div>
-        {price === 0 && <p className="text-sm text-muted-foreground">No payment required</p>}
-      </div>
+      {/* Show sale price and timer only if sale is active for this course */}
+      {sale ? (
+        <>
+          <SalePriceBlock sale={sale} price={price} />
+          <SaleTimer expiryTime={sale.expiryTime} />
+        </>
+      ) : (
+        <div className="text-center">
+          <div className="text-3xl font-bold mb-2">{price === 0 ? "Free" : `₹${price}`}</div>
+          {price === 0 && <p className="text-sm text-muted-foreground">No payment required</p>}
+        </div>
+      )}
 
       {session?.user ? (
-        price === 0 ? (
+        (sale ? sale.amount : price) === 0 ? (
           <Button onClick={handleFreeEnrollment} disabled={isEnrolling} className="w-full" size="lg">
             {isEnrolling ? (
               <>
@@ -146,7 +164,7 @@ export function EnrollmentSection({
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecting...
                 </>
               ) : (
-                <>Buy Now - ₹{price}</>
+                <>Buy Now - ₹{sale ? sale.amount : price}</>
               )}
             </Button>
             <p className="text-xs text-center text-muted-foreground">Secure payment via Razorpay</p>

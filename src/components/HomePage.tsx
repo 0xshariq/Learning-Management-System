@@ -86,7 +86,7 @@ export default function Home() {
               </FadeIn>
               <FadeIn delay={0.5}>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/courses/all">
+                  <Link href="/courses">
                     <Button size="lg" className="gap-2">
                       Browse Courses <ArrowRight className="h-4 w-4" />
                     </Button>
@@ -179,7 +179,7 @@ export default function Home() {
                 <h2 className="text-3xl font-bold">Featured Courses</h2>
               </FadeIn>
               <FadeIn delay={0.2}>
-                <Link href="/courses/all">
+                <Link href="/courses">
                   <Button variant="outline" className="gap-2">
                     View All <ArrowRight className="h-4 w-4" />
                   </Button>

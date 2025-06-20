@@ -9,15 +9,46 @@ interface SaleData {
   amount: number;
   saleTime: string;
   expiryTime?: string;
+  notes?: string;
 }
 
-interface CourseSalesProps {
+interface SaleMarqueeProps {
   sale: SaleData | null;
   price: number;
-  sidebar?: boolean;
 }
 
-function SaleTimer({ expiryTime }: { expiryTime?: string }) {
+export function SaleMarquee({ sale, price }: SaleMarqueeProps) {
+  if (!sale) return null;
+  return (
+    <div className="my-6 mt-0 pt-0">
+      <Marquee className="bg-gradient-to-r from-primary/80 to-secondary/80 rounded-lg py-2 px-4 text-white font-semibold text-lg">
+        🎉 Limited Time Sale! Get this course for just ₹{sale.amount}
+        <span className="ml-4 line-through text-gray-300">₹{price}</span>
+      </Marquee>
+    </div>
+  );
+}
+
+interface SalePriceBlockProps {
+  sale: SaleData | null;
+  price: number;
+}
+
+export function SalePriceBlock({ sale, price }: SalePriceBlockProps) {
+  if (!sale) return null;
+  return (
+    <div className="flex flex-col items-start mb-2">
+      <span className="text-3xl font-bold text-primary">₹{sale.amount}</span>
+      <span className="text-lg text-muted-foreground line-through mt-1">₹{price}</span>
+    </div>
+  );
+}
+
+interface SaleTimerProps {
+  expiryTime?: string;
+}
+
+export function SaleTimer({ expiryTime }: SaleTimerProps) {
   const [timeLeft, setTimeLeft] = useState<string>("");
 
   useEffect(() => {
@@ -31,49 +62,22 @@ function SaleTimer({ expiryTime }: { expiryTime?: string }) {
         clearInterval(interval);
         return;
       }
-      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s left`);
+      setTimeLeft(
+        `${days > 0 ? `${days}d ` : ""}${hours}h ${minutes}m ${seconds}s left`
+      );
     }, 1000);
     return () => clearInterval(interval);
   }, [expiryTime]);
 
   if (!expiryTime) return null;
   return (
-    <span className="ml-2 text-sm text-red-500 font-semibold flex items-center">
-      <Clock className="inline-block w-4 h-4 mr-1" />
-      {timeLeft}
-    </span>
-  );
-}
-
-export default function CourseSales({ sale, price, sidebar }: CourseSalesProps) {
-  if (!sale) return null;
-
-  // Sidebar style: price only, no Marquee
-  if (sidebar) {
-    return (
-      <div className="mb-4 flex flex-col items-center">
-        <span className="text-lg text-muted-foreground line-through">
-          ₹{price}
-        </span>
-        <span className="text-3xl font-bold text-primary">
-          ₹{sale.amount}
-        </span>
-        {sale.expiryTime && <SaleTimer expiryTime={sale.expiryTime} />}
-      </div>
-    );
-  }
-
-  // Main content style: Marquee
-  return (
-    <div className="my-6">
-      <Marquee className="bg-gradient-to-r from-primary/80 to-secondary/80 rounded-lg py-2 px-4 text-white font-semibold text-lg">
-        🎉 Limited Time Sale! Get this course for just ₹{sale.amount}
-        {sale.expiryTime && <SaleTimer expiryTime={sale.expiryTime} />}
-        <span className="ml-4 line-through text-gray-300">₹{price}</span>
-      </Marquee>
+    <div className="mt-2 flex items-center">
+      <Clock className="inline-block w-4 h-4 mr-1 text-red-500" />
+      <span className="text-sm text-red-500 font-semibold">{timeLeft}</span>
     </div>
   );
 }

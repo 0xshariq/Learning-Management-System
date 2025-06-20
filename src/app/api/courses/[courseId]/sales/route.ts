@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbConnect } from "@/lib/dbConnect";
 import { Sale, salesSchema } from "@/models/sales";
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // Create a new sale for a course
 export async function POST(
@@ -19,8 +21,19 @@ export async function POST(
   }
 
   try {
+    // Get teacher from session (assumes you use next-auth and store user id as teacher id)
+    const session = await getServerSession(authOptions);
+    const teacherId = session?.user?.id;
+    if (!teacherId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Teacher not found in session" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
-    const payload = { ...body, course: courseId };
+    // Add teacher and course to payload
+    const payload = { ...body, course: courseId, teacher: teacherId };
 
     const parsed = salesSchema.safeParse(payload);
     if (!parsed.success) {
@@ -91,6 +104,15 @@ export async function PATCH(
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    const teacherId = session?.user?.id;
+    if (!teacherId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Teacher not found in session" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id, ...updateData } = body;
 
@@ -101,7 +123,8 @@ export async function PATCH(
       );
     }
 
-    const parsed = salesSchema.partial().safeParse(updateData);
+    // Add teacher and course to updateData for validation
+    const parsed = salesSchema.partial().safeParse({ ...updateData, course: courseId, teacher: teacherId });
     if (!parsed.success) {
       return NextResponse.json(
         { success: false, error: parsed.error.errors[0]?.message || "Invalid update data" },
@@ -110,7 +133,7 @@ export async function PATCH(
     }
 
     const sale = await Sale.findOneAndUpdate(
-      { _id: id, course: courseId },
+      { _id: id, course: courseId, teacher: teacherId },
       parsed.data,
       { new: true }
     )
@@ -150,6 +173,15 @@ export async function DELETE(
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    const teacherId = session?.user?.id;
+    if (!teacherId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Teacher not found in session" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id } = body;
 
@@ -160,7 +192,7 @@ export async function DELETE(
       );
     }
 
-    const sale = await Sale.findOneAndDelete({ _id: id, course: courseId })
+    const sale = await Sale.findOneAndDelete({ _id: id, course: courseId, teacher: teacherId })
       .populate("course")
       .populate("teacher")
       .lean();

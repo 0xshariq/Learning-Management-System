@@ -218,7 +218,7 @@ export default async function StudentDashboard() {
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">My Courses</h2>
-          <Link href="/courses/all">
+          <Link href="/courses">
             <Button variant="outline">Browse More Courses</Button>
           </Link>
         </div>
@@ -293,7 +293,7 @@ export default async function StudentDashboard() {
               <p className="text-muted-foreground mb-6">
                 Start your learning journey by enrolling in your first course
               </p>
-              <Link href="/courses/all">
+              <Link href="/courses">
                 <Button>Browse Courses</Button>
               </Link>
             </CardContent>

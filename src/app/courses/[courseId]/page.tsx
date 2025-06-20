@@ -26,7 +26,7 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { EditCourseModal } from "@/components/courses/edit-course-modal";
 import { Button } from "@/components/ui/button";
-import CourseSales from "@/components/courses/course-sales";
+import { SaleMarquee } from "@/components/courses/course-sales";
 import { Sale } from "@/models/sales";
 
 interface TeacherData {
@@ -109,7 +109,11 @@ type ResultVideo = {
   createdAt: Date;
   updatedAt: Date;
 };
-
+interface CourseDetailPageProps {
+  params: {
+    courseId: string;
+  };
+}
 async function getCourseDetails(
   courseId: string
 ): Promise<CourseDetails | null> {
@@ -297,17 +301,25 @@ async function getActiveSale(courseId: string) {
       _id: saleDoc._id.toString(),
       amount: saleDoc.amount,
       saleTime: saleDoc.saleTime?.toISOString(),
-      expiryTime: saleDoc.expiryTime ? saleDoc.expiryTime.toISOString() : undefined,
+      expiryTime: saleDoc.expiryTime
+        ? saleDoc.expiryTime.toISOString()
+        : undefined,
     };
   } catch (error) {
     console.error("Error fetching sale:", error);
     return null;
   }
 }
-
-interface CourseDetailPageProps {
-  params: {
-    courseId: string;
+function serializeCourse(course: any) {
+  return {
+    _id: course._id?.toString() ?? "",
+    name: course.name ?? "",
+    description: course.description ?? "",
+    syllabus: course.syllabus ?? "",
+    price: typeof course.price === "number" ? course.price : 0,
+    duration: course.duration ?? "",
+    imageUrl: course.imageUrl ?? "",
+    isPublished: !!course.isPublished,
   };
 }
 
@@ -335,6 +347,9 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* --- Sale Marquee at the very top --- */}
+      <SaleMarquee sale={sale} price={course.price} />
+
       <div className="grid lg:grid-cols-4 gap-8">
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-8">
@@ -392,7 +407,10 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
               )}
               {/* Edit Course Button */}
               {course && isTeacher && (
-                <EditCourseModal courseId={courseId} course={course} />
+                <EditCourseModal
+                  courseId={courseId}
+                  course={serializeCourse(course)}
+                />
               )}
               {/* Teacher Upload Button */}
               {isTeacher && (
@@ -418,9 +436,6 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
               />
             </div>
           </div>
-
-          {/* --- Marquee for Sale --- */}
-          <CourseSales sale={sale} price={course.price} />
 
           {/* Course Tabs */}
           <Tabs defaultValue="overview" className="w-full">
@@ -557,15 +572,14 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
           <div className="sticky top-24 space-y-6">
             {/* Enrollment Card */}
             <div className="border rounded-lg p-6 bg-card">
-              {/* --- Sale Price Display with Timer and Strikethrough --- */}
-              <CourseSales sale={sale} price={course.price} />
               <EnrollmentSection
                 courseId={courseId}
                 courseName={course.name}
-                price={sale ? sale.amount : course.price}
+                price={course.price}
                 isEnrolled={isEnrolled}
                 hasVideos={totalVideos > 0}
                 firstVideoId={firstVideoId?.toString()}
+                sale={sale}
               />
             </div>
 

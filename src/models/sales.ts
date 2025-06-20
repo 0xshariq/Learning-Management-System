@@ -7,7 +7,6 @@ const sales = new mongoose.Schema({
     amount: { type: Number, required: true },
     saleTime: { type: Date, required: true },
     expiryTime: { type: Date , required: true},
-    platform: { type: String },
     currency: { type: String, default: "INR" },
     notes: { type: String },
 }, { timestamps: true });
@@ -18,7 +17,6 @@ export const salesSchema = z.object({
     amount: z.number().min(0, "Amount must be a positive number"),
     saleTime: z.union([z.string(), z.date()]), // Accept string or Date
     expiryTime: z.union([z.string(), z.date()]),
-    platform: z.string().optional(),
     currency: z.string().default("INR").optional(),
     notes: z.string().optional(),
     createdAt: z.union([z.string(), z.date()]).optional(),
