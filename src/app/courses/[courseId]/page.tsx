@@ -114,6 +114,17 @@ interface CourseDetailPageProps {
     courseId: string;
   };
 }
+interface SerializedCourse {
+  _id: string;
+  name: string;
+  description: string;
+  syllabus: string;
+  price: number;
+  duration: string;
+  imageUrl: string;
+  isPublished: boolean;
+}
+
 async function getCourseDetails(
   courseId: string
 ): Promise<CourseDetails | null> {
@@ -310,7 +321,8 @@ async function getActiveSale(courseId: string) {
     return null;
   }
 }
-function serializeCourse(course: any) {
+
+function serializeCourse(course: CourseDetails): SerializedCourse {
   return {
     _id: course._id?.toString() ?? "",
     name: course.name ?? "",
