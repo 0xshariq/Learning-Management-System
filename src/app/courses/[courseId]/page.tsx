@@ -11,6 +11,7 @@ import {
   BookOpen,
   Tag,
   Percent,
+  UploadCloud,
 } from "lucide-react";
 import { dbConnect } from "@/lib/dbConnect";
 import { Course } from "@/models/course";
@@ -28,6 +29,9 @@ import { EditCourseModal } from "@/components/courses/edit-course-modal";
 import { Button } from "@/components/ui/button";
 import { SaleMarquee } from "@/components/courses/course-sales";
 import { Sale } from "@/models/sales";
+import { useState } from "react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface TeacherData {
   _id: mongoose.Types.ObjectId | string;
@@ -124,7 +128,56 @@ interface SerializedCourse {
   imageUrl: string;
   isPublished: boolean;
 }
+interface StudyMaterial {
+  _id: string;
+  title: string;
+  description: string;
+  url: string;
+}
 
+// --- Study Material Upload Component ---
+function StudyMaterialUpload({ courseId }: { courseId: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`/api/courses/${courseId}/study-material/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      setError("Upload failed");
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="mb-4">
+      <Label className="block mb-2 font-medium">Upload Study Material</Label>
+      <Input
+        type="file"
+        onChange={handleUpload}
+        disabled={uploading}
+        className="block"
+      />
+      {uploading && (
+        <p className="text-sm text-muted-foreground">Uploading...</p>
+      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
 async function getCourseDetails(
   courseId: string
 ): Promise<CourseDetails | null> {
@@ -335,6 +388,15 @@ function serializeCourse(course: CourseDetails): SerializedCourse {
   };
 }
 
+const studyMaterials: StudyMaterial[] = [
+  // {
+  //   _id: "mat1",
+  //   title: "Business Strategy Slides",
+  //   description: "PDF slides for the course.",
+  //   url: "/upload/6849c1d326a1a99a497754ff/business-strategy.pdf",
+  // }
+];
+
 export default async function CourseDetailPage(props: CourseDetailPageProps) {
   const { courseId } = await props.params;
   const course = await getCourseDetails(courseId);
@@ -474,58 +536,104 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
               />
             </TabsContent>
 
-            <TabsContent value="curriculum" className="space-y-4 pt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold">Course Content</h3>
-                <div className="text-sm text-muted-foreground">
-                  {totalVideos} videos • {totalDuration}
+            <TabsContent value="curriculum" className="space-y-8 pt-6">
+              {/* --- Course Content --- */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold">Course Content</h3>
+                  <div className="text-sm text-muted-foreground">
+                    {totalVideos} videos • {totalDuration}
+                  </div>
                 </div>
+
+                {course.videos && course.videos.length > 0 ? (
+                  <div className="space-y-3">
+                    {course.videos.map((video: VideoData, index: number) => (
+                      <div
+                        key={video._id}
+                        className="border rounded-lg p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-primary/10 text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{video.title}</h4>
+                            {video.description && (
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {video.description}
+                              </p>
+                            )}
+                            {video.duration && (
+                              <p className="text-xs text-muted-foreground">
+                                Duration: {video.duration}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Link href={`/courses/${courseId}/learn/${video._id}`}>
+                          <PlayCircle className="h-5 w-5 text-muted-foreground cursor-pointer" />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border rounded-lg bg-muted/20">
+                    <PlayCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      No videos available for this course yet.
+                    </p>
+                    {isTeacher && (
+                      <div className="mt-4">
+                        <VideoUploadModal courseId={courseId} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {course.videos && course.videos.length > 0 ? (
-                <div className="space-y-3">
-                  {course.videos.map((video: VideoData, index: number) => (
-                    <div
-                      key={video._id}
-                      className="border rounded-lg p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
-                          {index + 1}
-                        </div>
+              {/* --- Study Material Section --- */}
+              <div>
+                <h3 className="text-xl font-semibold mb-4">Study Material</h3>
+                {isTeacher && <StudyMaterialUpload courseId={courseId} />}
+                {studyMaterials.length > 0 ? (
+                  <div className="space-y-3">
+                    {studyMaterials.map((material) => (
+                      <div
+                        key={material._id}
+                        className="border rounded-lg p-4 flex items-center justify-between bg-muted/10"
+                      >
                         <div>
-                          <h4 className="font-medium">{video.title}</h4>
-                          {video.description && (
-                            <p className="text-xs text-muted-foreground mb-1">
-                              {video.description}
-                            </p>
-                          )}
-                          {video.duration && (
-                            <p className="text-xs text-muted-foreground">
-                              Duration: {video.duration}
-                            </p>
-                          )}
+                          <h4 className="font-medium">{material.title}</h4>
+                          <p className="text-xs text-muted-foreground">
+                            {material.description}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <a
+                            href={material.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button variant="outline" size="sm">
+                              Preview
+                            </Button>
+                          </a>
+                          <a href={material.url} download>
+                            <Button variant="secondary" size="sm">
+                              Download
+                            </Button>
+                          </a>
                         </div>
                       </div>
-                      <Link href={`/courses/${courseId}/learn/${video._id}`}>
-                        <PlayCircle className="h-5 w-5 text-muted-foreground cursor-pointer" />
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 border rounded-lg bg-muted/20">
-                  <PlayCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    No videos available for this course yet.
-                  </p>
-                  {isTeacher && (
-                    <div className="mt-4">
-                      <VideoUploadModal courseId={courseId} />
-                    </div>
-                  )}
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-sm">
+                    No study materials yet.
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="instructor" className="space-y-4 pt-6">
