@@ -74,7 +74,6 @@ export default async function TeacherDashboard() {
   }
 
   await dbConnect()
-  console.log("Connected to DB")
 
   // Fetch teacher data
   const teacher: ITeacher | null = await Teacher.findById(session.user.id).lean()
