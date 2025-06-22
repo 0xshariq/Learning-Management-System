@@ -65,7 +65,7 @@ export default function TeacherCoursesPage() {
         const res = await fetch("/api/courses");
         if (!res.ok) throw new Error("Failed to fetch courses");
         const data: ApiResponse<TeacherCourse> = await res.json();
-        let fetchedCourses = data.courses || [];
+        const fetchedCourses = data.courses || [];
 
         // Fetch sales for each course
         const updatedCourses = await Promise.all(
