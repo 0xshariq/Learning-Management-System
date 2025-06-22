@@ -1,18 +1,29 @@
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
-import { dbConnect } from "@/lib/dbConnect"
-import { Teacher } from "@/models/teacher"
-import { Course } from "@/models/course"
-import { Student } from "@/models/student"
-import { Review } from "@/models/review"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import Image from "next/image"
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react"
-import mongoose from "mongoose"
-import { authOptions } from "@/lib/auth"
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import { dbConnect } from "@/lib/dbConnect";
+import { Teacher } from "@/models/teacher";
+import { Course } from "@/models/course";
+import { Student } from "@/models/student";
+import { Review } from "@/models/review";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import Image from "next/image";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react";
+import mongoose from "mongoose";
+import { authOptions } from "@/lib/auth";
+import React from "react";
+import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
+
+// Sale interface (separate)
+interface SaleData {
+  _id: string;
+  amount: number;
+  saleTime: string;
+  expiryTime?: string;
+  notes?: string;
+}
 
 interface ITeacher {
   _id: string;
@@ -66,36 +77,30 @@ interface IReview {
 }
 
 export default async function TeacherDashboard() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.user.role !== "teacher") {
-    console.log("No valid session or not a teacher, redirecting...")
-    redirect("/role")
+    redirect("/role");
   }
 
-  await dbConnect()
+  await dbConnect();
 
   // Fetch teacher data
-  const teacher: ITeacher | null = await Teacher.findById(session.user.id).lean()
-  
+  const teacher: ITeacher | null = await Teacher.findById(session.user.id).lean();
 
   if (!teacher) {
-    console.log("Teacher not found, redirecting to role selection")
-    redirect("/role")
+    redirect("/role");
   }
 
   // Fix: Ensure type match for teacher._id and course.teacher
   const teacherId =
     typeof teacher._id === "string"
       ? new mongoose.Types.ObjectId(teacher._id)
-      : teacher._id
+      : teacher._id;
 
   // Fetch courses created by the teacher (handle both ObjectId and string)
   const courses: ICourse[] = await Course.find({
-    $or: [
-      { teacher: teacherId },
-      { teacher: teacherId.toString() }
-    ]
+    $or: [{ teacher: teacherId }, { teacher: teacherId.toString() }],
   }).lean();
 
   const courseIds: string[] = courses.map((course) =>
@@ -107,7 +112,7 @@ export default async function TeacherDashboard() {
   // Count total students across all courses
   const totalStudents = await Student.countDocuments({
     purchasedCourses: { $in: courseIds },
-  })
+  });
 
   // Fetch reviews for teacher's courses
   const reviews: IReview[] = await Review.find({
@@ -115,24 +120,54 @@ export default async function TeacherDashboard() {
   })
     .populate("student", "name")
     .populate("course", "name")
-    .lean()
-  console.log("Reviews found:", reviews)
+    .lean();
 
   // Calculate average rating
   const averageRating: number =
     reviews.length > 0
       ? reviews.reduce((sum: number, review: IReview) => sum + review.rating, 0) / reviews.length
-      : 0
-  console.log("Average rating:", averageRating)
+      : 0;
 
   // Calculate total revenue (placeholder - would need payment system)
   const totalRevenue = courses.reduce((sum, course) => {
-    const studentCount = course.studentsPurchased?.length || 0
-    return sum + course.price * studentCount
-  }, 0)
+    const studentCount = course.studentsPurchased?.length || 0;
+    return sum + course.price * studentCount;
+  }, 0);
 
   // Get published courses count
-  const publishedCourses = courses.filter((course) => course.isPublished).length
+  const publishedCourses = courses.filter((course) => course.isPublished).length;
+
+  // Fetch all active sales for teacher's courses using API route
+  async function fetchSaleForCourse(courseId: string): Promise<SaleData | null> {
+    try {
+      const baseUrl =
+        process.env.NEXTAUTH_URL ||
+        (typeof window !== "undefined" ? window.location.origin : "");
+      const res = await fetch(
+        `${baseUrl}/api/courses/${courseId}/sales`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) return null;
+      const saleData: { sales?: SaleData[] } = await res.json();
+      const now = new Date();
+      const activeSale = saleData.sales?.find(
+        (sale) =>
+          new Date(sale.saleTime) <= now &&
+          (!sale.expiryTime || new Date(sale.expiryTime) >= now)
+      );
+      return activeSale || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Fetch all sales for dashboard courses
+  const sales: Record<string, SaleData | null> = {};
+  await Promise.all(
+    courses.map(async (course) => {
+      sales[course._id.toString()] = await fetchSaleForCourse(course._id.toString());
+    })
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -276,21 +311,23 @@ export default async function TeacherDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.slice(0, 6).map((course: ICourse) => {
               // Count students for this course
-              const courseStudents = course.studentsPurchased?.length || 0
+              const courseStudents = course.studentsPurchased?.length || 0;
 
               // Get course reviews
               const courseReviews = reviews.filter(
-                (review: IReview) => review.course?._id?.toString() === course._id.toString(),
-              )
+                (review: IReview) => review.course?._id?.toString() === course._id.toString()
+              );
 
               // Calculate course rating
               const courseRating =
                 courseReviews.length > 0
                   ? courseReviews.reduce((sum: number, review: IReview) => sum + review.rating, 0) / courseReviews.length
-                  : 0
+                  : 0;
 
+              // Sale logic
+              const sale = sales[course._id.toString()];
               return (
-                <Card key={course._id.toString()} className="overflow-hidden hover:shadow-md transition-shadow">
+                <Card key={course._id.toString()} className="overflow-hidden hover:shadow-md transition-shadow relative">
                   <div className="aspect-video relative bg-muted">
                     <Image
                       src={
@@ -301,7 +338,7 @@ export default async function TeacherDashboard() {
                       fill
                       className="object-cover"
                     />
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
                       <Badge variant={course.isPublished ? "default" : "secondary"}>
                         {course.isPublished ? (
                           <>
@@ -332,7 +369,16 @@ export default async function TeacherDashboard() {
                         <span className="font-medium">{courseRating.toFixed(1)}</span>
                         <span className="text-muted-foreground text-sm">({courseReviews.length})</span>
                       </div>
-                      <div className="font-medium">{course.price === 0 ? "Free" : `₹${course.price}`}</div>
+                      <div className="font-medium">
+                        {sale ? (
+                          <>
+                            <SalePriceBlock sale={sale} price={course.price} />
+                            <SaleTimer expiryTime={sale.expiryTime} />
+                          </>
+                        ) : (
+                          course.price === 0 ? "Free" : `₹${course.price}`
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex gap-2">
@@ -349,7 +395,7 @@ export default async function TeacherDashboard() {
                     </div>
                   </CardContent>
                 </Card>
-              )
+              );
             })}
           </div>
         ) : (
@@ -411,5 +457,5 @@ export default async function TeacherDashboard() {
         </div>
       )}
     </div>
-  )
+  );
 }

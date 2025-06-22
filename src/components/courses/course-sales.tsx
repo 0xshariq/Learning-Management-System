@@ -17,13 +17,12 @@ interface SaleMarqueeProps {
   price: number;
 }
 
-export function SaleMarquee({ sale, price }: SaleMarqueeProps) {
+export function SaleMarquee({ sale }: SaleMarqueeProps) {
   if (!sale) return null;
   return (
     <div className="my-6 mt-0 pt-0">
       <Marquee className="bg-gradient-to-r from-primary/80 to-secondary/80 rounded-lg py-2 px-4 text-white font-semibold text-lg">
         🎉 Limited Time Sale! Get this course for just ₹{sale.amount}
-        <span className="ml-4 line-through text-gray-300">₹{price}</span>
       </Marquee>
     </div>
   );

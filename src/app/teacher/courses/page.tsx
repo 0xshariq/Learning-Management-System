@@ -12,8 +12,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle,  Eye, EyeOff, Trash2, Video } from "lucide-react";
+import { PlusCircle, Eye, EyeOff, Trash2, Video } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
+// Sale interface (separate)
+interface SaleData {
+  _id: string;
+  amount: number;
+  saleTime: string;
+  expiryTime?: string;
+  notes?: string;
+}
 
 interface TeacherCourse {
   _id: string;
@@ -35,6 +44,7 @@ interface TeacherCourse {
   videoCount: number;
   teacher: string;
   studentsPurchased?: string[];
+  sale?: SaleData | null;
 }
 
 interface ApiResponse<T> {
@@ -47,15 +57,37 @@ export default function TeacherCoursesPage() {
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  // Fetch courses for the logged-in teacher
+  // Fetch courses for the logged-in teacher and their sales
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchCoursesAndSales = async () => {
       setLoading(true);
       try {
         const res = await fetch("/api/courses");
         if (!res.ok) throw new Error("Failed to fetch courses");
         const data: ApiResponse<TeacherCourse> = await res.json();
-        setCourses(data.courses || []);
+        let fetchedCourses = data.courses || [];
+
+        // Fetch sales for each course
+        const updatedCourses = await Promise.all(
+          fetchedCourses.map(async (course) => {
+            try {
+              const saleRes = await fetch(`/api/courses/${course._id}/sales`);
+              if (!saleRes.ok) return { ...course, sale: null };
+              const saleData: { sales?: SaleData[] } = await saleRes.json();
+              // Find active sale
+              const now = new Date();
+              const activeSale = saleData.sales?.find(
+                (sale) =>
+                  new Date(sale.saleTime) <= now &&
+                  (!sale.expiryTime || new Date(sale.expiryTime) >= now)
+              );
+              return { ...course, sale: activeSale || null };
+            } catch {
+              return { ...course, sale: null };
+            }
+          })
+        );
+        setCourses(updatedCourses);
       } catch (err) {
         const error = err as Error;
         toast({
@@ -67,7 +99,7 @@ export default function TeacherCoursesPage() {
         setLoading(false);
       }
     };
-    fetchCourses();
+    fetchCoursesAndSales();
   }, []);
 
   // Publish/Unpublish handler
@@ -172,7 +204,7 @@ export default function TeacherCoursesPage() {
                   fill
                   className="object-cover"
                 />
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
                   <Badge variant={course.isPublished ? "default" : "outline"}>
                     {course.isPublished ? "Published" : "Draft"}
                   </Badge>
@@ -185,8 +217,7 @@ export default function TeacherCoursesPage() {
                 </CardTitle>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Badge variant="outline" className="text-xs">
-                    <Video className="mr-1 h-3 w-3" /> {course.videoCount}{" "}
-                    videos
+                    <Video className="mr-1 h-3 w-3" /> {course.videoCount} videos
                   </Badge>
                 </div>
               </CardHeader>
@@ -196,7 +227,15 @@ export default function TeacherCoursesPage() {
                   {course.description}
                 </p>
                 <div className="mt-4">
-                  <p className="font-medium">Price: ₹{course.price}</p>
+                  {/* Sale price display */}
+                  {course.sale ? (
+                    <div className="font-medium">
+                      <SalePriceBlock sale={course.sale} price={course.price} />
+                      <SaleTimer expiryTime={course.sale.expiryTime} />
+                    </div>
+                  ) : (
+                    <p className="font-medium">Price: ₹{course.price}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     Duration: {course.duration}
                   </p>

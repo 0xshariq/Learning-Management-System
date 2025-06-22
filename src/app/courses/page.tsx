@@ -13,17 +13,28 @@ import {
   Clock,
   Users,
   Calendar,
-  Search,
   SortAsc,
   SortDesc,
 } from "lucide-react";
 import dbConnect from "@/lib/dbConnect";
 import { Course } from "@/models/course";
+import { Sale } from "@/models/sales";
+import { Suspense } from "react";
+import { DebouncedSearchInput } from "@/components/courses/debounced-search-input";
+import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
 
 interface Teacher {
   _id: string;
   name: string;
   email: string;
+}
+
+interface SaleData {
+  _id: string;
+  amount: number;
+  saleTime: string;
+  expiryTime?: string;
+  notes?: string;
 }
 
 interface CourseType {
@@ -40,7 +51,9 @@ interface CourseType {
 
 interface CourseWithEnrollment extends CourseType {
   enrollmentCount: number;
+  sale?: SaleData | null;
 }
+
 interface CourseTeacher {
   _id: string;
   name: string;
@@ -58,7 +71,37 @@ interface CourseMapped {
   price: number;
   studentsPurchased: string[];
 }
-// Function to get all courses with sorting and filtering
+
+interface ISale {
+  _id: string;
+  course: string;
+  amount: number;
+  saleTime: string;
+  expiryTime?: string;
+  notes?: string;
+}
+
+// Helper to get active sale for a course
+function getSaleForCourse(sales: ISale[], courseId: string): SaleData | null {
+  const now = new Date();
+  const found = sales.find(
+    (sale) =>
+      sale.course === courseId &&
+      new Date(sale.saleTime) <= now &&
+      (!sale.expiryTime || new Date(sale.expiryTime) >= now)
+  );
+  return found
+    ? {
+        _id: found._id,
+        amount: found.amount,
+        saleTime: found.saleTime,
+        expiryTime: found.expiryTime,
+        notes: found.notes,
+      }
+    : null;
+}
+
+// Fetch all courses with sorting and filtering
 async function getAllCourses(
   searchQuery?: string | null,
   sortBy = "createdAt",
@@ -67,7 +110,6 @@ async function getAllCourses(
   await dbConnect();
 
   try {
-    // Build query
     const query: {
       isPublished: boolean;
       $or?: {
@@ -76,7 +118,6 @@ async function getAllCourses(
       }[];
     } = { isPublished: true };
 
-    // Add search functionality if query provided
     if (searchQuery) {
       query.$or = [
         { name: { $regex: searchQuery, $options: "i" } },
@@ -84,23 +125,20 @@ async function getAllCourses(
       ];
     }
 
-    // Determine sort direction
+    // Only allow sorting by whitelisted fields
+    const allowedSorts = ["createdAt", "price", "name"];
+    const sortField = allowedSorts.includes(sortBy) ? sortBy : "createdAt";
     const sortDirection = sortOrder === "asc" ? 1 : -1;
-
-    // Create sort object
     const sortOptions: Record<string, 1 | -1> = {};
-    sortOptions[sortBy] = sortDirection;
+    sortOptions[sortField] = sortDirection;
 
-    // Execute query with populated teacher field
     const courses = await Course.find(query)
       .populate("teacher", "name email")
       .sort(sortOptions)
       .lean();
 
-    // Convert MongoDB documents to plain objects and stringify ObjectIds
-
     return courses.map(
-      (course): CourseMapped => ({
+      (course: CourseType): CourseMapped => ({
         _id: course._id.toString(),
         teacher: {
           _id: course.teacher._id.toString(),
@@ -111,7 +149,7 @@ async function getAllCourses(
         description: course.description,
         imageUrl: course.imageUrl || "",
         duration: course.duration,
-        createdAt: course.createdAt.toISOString(),
+        createdAt: course.createdAt.toString(),
         price: course.price,
         studentsPurchased:
           course.studentsPurchased?.map((id: string) => id.toString()) || [],
@@ -123,10 +161,9 @@ async function getAllCourses(
   }
 }
 
-// Function to count students enrolled in a course
+// Fetch enrollment count for a course
 async function getEnrollmentCount(courseId: string) {
   await dbConnect();
-
   try {
     const course = (await Course.findById(
       courseId
@@ -141,12 +178,35 @@ async function getEnrollmentCount(courseId: string) {
   }
 }
 
+// Fetch all active sales for a set of course IDs
+async function getActiveSales(courseIds: string[]) {
+  await dbConnect();
+  try {
+    const now = new Date();
+    const sales: ISale[] = await Sale.find({
+      course: { $in: courseIds },
+      saleTime: { $lte: now },
+      $or: [{ expiryTime: { $gte: now } }, { expiryTime: null }],
+    }).lean();
+    return sales.map((sale) => ({
+      ...sale,
+      course: sale.course.toString(),
+      _id: sale._id.toString(),
+      saleTime: sale.saleTime?.toString(),
+      expiryTime: sale.expiryTime ? sale.expiryTime.toString() : undefined,
+      notes: sale.notes,
+    }));
+  } catch (error) {
+    console.error("Error fetching sales:", error);
+    return [];
+  }
+}
+
 export default async function AllCoursesPage({
   searchParams,
 }: {
   searchParams: { search?: string; sort?: string; order?: string };
 }) {
-  // Get query parameters
   const searchQuery = searchParams.search || null;
   const sortBy = searchParams.sort || "createdAt";
   const sortOrder = searchParams.order || "desc";
@@ -154,11 +214,19 @@ export default async function AllCoursesPage({
   // Fetch courses
   const courses = await getAllCourses(searchQuery, sortBy, sortOrder);
 
-  // Fetch enrollment counts for each course
+  // Fetch enrollment counts and sales for each course
+  const courseIds = courses.map((c: CourseType) => c._id);
+  const sales = await getActiveSales(courseIds);
+
   const coursesWithEnrollment: CourseWithEnrollment[] = await Promise.all(
     courses.map(async (course: CourseMapped): Promise<CourseWithEnrollment> => {
       const enrollmentCount: number = await getEnrollmentCount(course._id);
-      return { ...course, enrollmentCount };
+      const sale = getSaleForCourse(sales, course._id);
+      return {
+        ...course,
+        enrollmentCount,
+        sale,
+      };
     })
   );
 
@@ -173,93 +241,56 @@ export default async function AllCoursesPage({
           </p>
         </div>
 
-        {/* Search form */}
+        {/* Search form with debounce (client component) */}
         <div className="w-full md:w-auto">
-          <form className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="search"
-                name="search"
-                placeholder="Search courses..."
-                defaultValue={searchQuery || ""}
-                className="pl-9 h-10 w-full md:w-[250px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-            </div>
-            <Button type="submit" size="sm">
-              Search
-            </Button>
-          </form>
+          <Suspense fallback={null}>
+            <DebouncedSearchInput
+              defaultValue={searchQuery || ""}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+            />
+          </Suspense>
         </div>
       </div>
 
       {/* Sorting options */}
       <div className="flex flex-wrap gap-2 mb-6">
-        <Badge
-          variant={sortBy === "createdAt" ? "default" : "outline"}
-          className="cursor-pointer"
-        >
-          <Link
-            href={`/courses/all?sort=createdAt&order=${
-              sortOrder === "asc" ? "desc" : "asc"
-            }`}
-            className="flex items-center"
+        {[
+          { label: "Newest", value: "createdAt" },
+          { label: "Price", value: "price" },
+          { label: "Name", value: "name" },
+        ].map((sort) => (
+          <Badge
+            key={sort.value}
+            variant={sortBy === sort.value ? "default" : "outline"}
+            className="cursor-pointer"
           >
-            Newest
-            {sortBy === "createdAt" &&
-              (sortOrder === "desc" ? (
-                <SortDesc className="ml-1 h-3 w-3" />
-              ) : (
-                <SortAsc className="ml-1 h-3 w-3" />
-              ))}
-          </Link>
-        </Badge>
-        <Badge
-          variant={sortBy === "price" ? "default" : "outline"}
-          className="cursor-pointer"
-        >
-          <Link
-            href={`/courses/all?sort=price&order=${
-              sortOrder === "asc" ? "desc" : "asc"
-            }`}
-            className="flex items-center"
-          >
-            Price
-            {sortBy === "price" &&
-              (sortOrder === "desc" ? (
-                <SortDesc className="ml-1 h-3 w-3" />
-              ) : (
-                <SortAsc className="ml-1 h-3 w-3" />
-              ))}
-          </Link>
-        </Badge>
-        <Badge
-          variant={sortBy === "name" ? "default" : "outline"}
-          className="cursor-pointer"
-        >
-          <Link
-            href={`/courses/all?sort=name&order=${
-              sortOrder === "asc" ? "desc" : "asc"
-            }`}
-            className="flex items-center"
-          >
-            Name
-            {sortBy === "name" &&
-              (sortOrder === "desc" ? (
-                <SortDesc className="ml-1 h-3 w-3" />
-              ) : (
-                <SortAsc className="ml-1 h-3 w-3" />
-              ))}
-          </Link>
-        </Badge>
+            <Link
+              href={`/courses?sort=${sort.value}&order=${
+                sortBy === sort.value && sortOrder === "desc" ? "asc" : "desc"
+              }${
+                searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""
+              }`}
+              className="flex items-center"
+            >
+              {sort.label}
+              {sortBy === sort.value &&
+                (sortOrder === "desc" ? (
+                  <SortDesc className="ml-1 h-3 w-3" />
+                ) : (
+                  <SortAsc className="ml-1 h-3 w-3" />
+                ))}
+            </Link>
+          </Badge>
+        ))}
       </div>
 
       {coursesWithEnrollment.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {coursesWithEnrollment.map((course: CourseWithEnrollment) => (
+          {coursesWithEnrollment.map((course) => (
             <Card
               key={course._id}
-              className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow"
+              className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow relative"
             >
               <div className="aspect-video relative bg-muted">
                 <Image
@@ -298,14 +329,25 @@ export default async function AllCoursesPage({
                     {new Date(course.createdAt).toLocaleDateString()}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
-                    <Users className="mr-1 h-3 w-3" /> {course.enrollmentCount}{" "}
-                    enrolled
+                    <Users className="mr-1 h-3 w-3" />{" "}
+                    {course.enrollmentCount} enrolled
                   </Badge>
                 </div>
               </CardContent>
 
               <CardFooter className="flex justify-between items-center border-t pt-4">
-                <div className="font-bold text-lg">₹{course.price}</div>
+                <div className="font-bold text-lg">
+                  {course.sale ? (
+                    <>
+                      <SalePriceBlock sale={course.sale} price={course.price} />
+                      <SaleTimer expiryTime={course.sale.expiryTime} />
+                    </>
+                  ) : course.price === 0 ? (
+                    "Free"
+                  ) : (
+                    `₹${course.price}`
+                  )}
+                </div>
                 <Link href={`/courses/${course._id}`}>
                   <Button>View Course</Button>
                 </Link>
@@ -327,7 +369,7 @@ export default async function AllCoursesPage({
             </p>
           )}
           {searchQuery && (
-            <Link href="/courses/all">
+            <Link href="/courses">
               <Button>View All Courses</Button>
             </Link>
           )}

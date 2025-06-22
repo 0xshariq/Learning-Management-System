@@ -31,7 +31,7 @@ const roleNavConfigs = {
   student: {
     mainNav: [
       { href: "/", label: "Home" },
-      { href: "/courses/all", label: "Browse Courses" },
+      { href: "/courses", label: "Browse Courses" },
       { href: "/student/dashboard", label: "My Learning" },
     ],
     dropdownItems: [
@@ -43,7 +43,7 @@ const roleNavConfigs = {
   teacher: {
     mainNav: [
       { href: "/", label: "Home" },
-      { href: "/courses/all", label: "Browse Courses" },
+      { href: "/courses", label: "Browse Courses" },
       { href: "/teacher/dashboard", label: "Dashboard" },
       { href: "/teacher/courses", label: "My Courses" },
     ],
@@ -79,7 +79,7 @@ const roleNavConfigs = {
 const defaultNavConfig = {
   mainNav: [
     { href: "/", label: "Home" },
-    { href: "/courses/all", label: "Courses" },
+    { href: "/courses", label: "Courses" },
     { href: "/about", label: "About" },
   ],
   dropdownItems: [],

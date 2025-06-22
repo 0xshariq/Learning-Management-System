@@ -40,8 +40,7 @@ export default function RefundPage() {
     handleSubmit,
     reset,
     setValue,
-    formState: { errors, isSubmitting },
-    watch,
+    formState: { errors, isSubmitting }
   } = useForm<RefundFormType>({
     resolver: zodResolver(refundSchema),
     defaultValues: {
@@ -104,7 +103,7 @@ export default function RefundPage() {
         setError(result.error || "Failed to submit refund request.");
       }
     } catch (err) {
-      setError("Something went wrong.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     }
   };
 
