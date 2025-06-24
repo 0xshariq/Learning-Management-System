@@ -42,4 +42,4 @@ next-env.d.ts
 
 
 # study material of the course
-/upload/:path*
+/public/upload
