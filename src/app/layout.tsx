@@ -38,7 +38,8 @@ export const metadata: Metadata = {
     "EduLearn",
   ],
   description:
-    "A modern platform for online education. Learn, teach, and grow with us.",
+    "A modern platform for online education. Learn, teach, and grow with us. EduLearn is your go-to solution for managing courses, students, and educational content. Join us today!",
+    
 };
 
 export default function RootLayout({

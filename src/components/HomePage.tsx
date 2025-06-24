@@ -11,6 +11,8 @@ import {
   Clock,
   Globe,
   CheckCircle,
+  DollarSign,
+  Timer,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FadeIn } from "@/components/animations/fade-in";
@@ -19,9 +21,18 @@ import { ScaleIn } from "@/components/animations/scale-in";
 import { StaggerChildren } from "@/components/animations/stagger-children";
 import { TextReveal } from "@/components/animations/text-reveal";
 import { FeaturedReviews } from "@/components/featured-reviews";
+import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
 
 interface Teacher {
   name: string;
+}
+
+interface SaleData {
+  _id: string;
+  amount: number;
+  saleTime: string;
+  expiryTime?: string;
+  notes?: string;
 }
 
 interface CourseType {
@@ -31,6 +42,7 @@ interface CourseType {
   imageUrl?: string;
   price: number;
   teacher?: Teacher;
+  sale?: SaleData | null;
 }
 
 export default function Home() {
@@ -42,7 +54,29 @@ export default function Home() {
       try {
         const response = await fetch("/api/courses?isPublished=true");
         const data = await response.json();
-        setFeaturedCourses(data.courses.slice(0, 3));
+        const courses: CourseType[] = data.courses.slice(0, 3);
+
+        // Fetch active sale for each course
+        const coursesWithSales = await Promise.all(
+          courses.map(async (course) => {
+            try {
+              const saleRes = await fetch(`/api/courses/${course._id}/sales`);
+              if (!saleRes.ok) return { ...course, sale: null };
+              const saleData: { sales?: SaleData[] } = await saleRes.json();
+              const now = new Date();
+              const activeSale =
+                saleData.sales?.find(
+                  (sale) =>
+                    new Date(sale.saleTime) <= now &&
+                    (!sale.expiryTime || new Date(sale.expiryTime) >= now)
+                ) || null;
+              return { ...course, sale: activeSale };
+            } catch {
+              return { ...course, sale: null };
+            }
+          })
+        );
+        setFeaturedCourses(coursesWithSales);
       } catch (error) {
         console.error("Error fetching courses:", error);
       } finally {
@@ -64,11 +98,12 @@ export default function Home() {
               className="flex-1 flex justify-center items-center"
             >
               <Image
-                src="/public/edulearn-logo.png"
+                src="/edulearn-logo.png"
                 alt="Students learning online"
                 width={60}
                 height={40}
                 className="rounded-lg shadow-lg"
+                priority
               />
             </ScaleIn>
             <div className="flex-1 space-y-6 text-center flex flex-col justify-center items-center">
@@ -109,7 +144,7 @@ export default function Home() {
                 Popular Categories
               </h2>
             </FadeIn>
-            <StaggerChildren className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+            <StaggerChildren className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
               <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
                 <BookOpen className="h-10 w-10 mb-4 text-primary" />
                 <h3 className="font-medium">Web Development</h3>
@@ -174,13 +209,13 @@ export default function Home() {
         {/* Featured Courses */}
         <section className="py-16">
           <div className="container mx-auto px-4">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
               <FadeIn>
                 <h2 className="text-3xl font-bold">Featured Courses</h2>
               </FadeIn>
               <FadeIn delay={0.2}>
                 <Link href="/courses">
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2 w-full md:w-auto">
                     View All <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -208,11 +243,11 @@ export default function Home() {
                 ))}
               </div>
             ) : featuredCourses.length > 0 ? (
-              <StaggerChildren className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {featuredCourses.map((course: CourseType) => (
                   <div
                     key={course._id}
-                    className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow"
+                    className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow flex flex-col"
                   >
                     <div className="aspect-video relative bg-muted">
                       <Image
@@ -224,9 +259,11 @@ export default function Home() {
                         alt={course.name}
                         fill
                         className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        priority
                       />
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 flex flex-col flex-1">
                       <h3 className="font-bold text-lg mb-2">{course.name}</h3>
                       <p className="text-sm text-muted-foreground mb-2">
                         {course.description.length > 100
@@ -237,12 +274,38 @@ export default function Home() {
                         <span className="font-medium">Instructor:</span>{" "}
                         {course.teacher?.name || "Unknown"}
                       </p>
-                      <div className="flex justify-between items-center mt-4">
-                        <span className="font-bold">
-                          {course.price === 0 ? "Free" : `₹${course.price}`}
+                      <div className="flex justify-between items-center mt-auto pt-4 gap-2 flex-wrap">
+                        <span className="font-bold text-base">
+                          {course.sale ? (
+                            <>
+                              <span className="line-through text-muted-foreground mr-2">
+                                ₹{course.price}
+                              </span>
+                              <span>
+                                <SalePriceBlock
+                                  sale={course.sale}
+                                  price={course.price}
+                                />
+                              </span>
+                              <span>
+                                <SaleTimer
+                                  expiryTime={course.sale.expiryTime}
+                                />
+                              </span>
+                            </>
+                          ) : course.price === 0 ? (
+                            "Free"
+                          ) : (
+                            `₹${course.price}`
+                          )}
                         </span>
                         <Link href={`/courses/${course._id}`}>
-                          <Button size="sm">View Course</Button>
+                          <Button
+                            size="sm"
+                            className="w-full sm:w-auto mt-2 sm:mt-0"
+                          >
+                            View Course
+                          </Button>
                         </Link>
                       </div>
                     </div>

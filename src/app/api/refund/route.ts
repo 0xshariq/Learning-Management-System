@@ -3,6 +3,13 @@ import { refundSchema, Refund } from "@/models/refund";
 import { dbConnect } from "@/lib/dbConnect";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import Razorpay from "razorpay";
+
+// Initialize Razorpay instance (use your keys from env)
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
 
 export async function POST(req: NextRequest) {
   await dbConnect();
@@ -27,26 +34,45 @@ export async function POST(req: NextRequest) {
   }
 
   // Ensure required references are provided
-  const { course, razorpayPaymentId, razorpayOrderId } = parsed.data;
+  const { course, razorpayPaymentId, razorpayOrderId, refundAmount } = parsed.data;
   if (!course || !razorpayPaymentId || !razorpayOrderId) {
     return NextResponse.json({ error: "Missing required reference fields." }, { status: 400 });
   }
 
   try {
-    // The student field is set from the session
+    // 1. Initiate refund with Razorpay
+    // refundAmount should be in paise (e.g., 10000 for ₹100)
+    const refundResponse = await razorpay.payments.refund(razorpayPaymentId, {
+      amount: refundAmount, // amount in paise, optional (if not provided, full refund)
+      speed: "optimum",
+      notes: {
+        course,
+        student: session.user.id,
+        reason: parsed.data.reason || "No reason provided",
+      },
+    });
+
+    // 2. Save refund request in DB
     const refundDoc = await Refund.create({
       ...parsed.data,
       student: session.user.id,
-      status: "pending",
+      status: refundResponse.status || "pending",
+      razorpayRefundId: refundResponse.id,
+      razorpayRefundStatus: refundResponse.status,
+      razorpayRefundResponse: refundResponse,
     });
 
-    // Populate references for response
+    // 3. Populate references for response
     const populatedRefund = await Refund.findById(refundDoc._id)
       .populate("course")
       .populate("student");
 
-    return NextResponse.json({ refund: populatedRefund }, { status: 201 });
-  } catch (err) {
-    return NextResponse.json({ error: "Failed to create refund", details: err }, { status: 500 });
+    return NextResponse.json({ refund: populatedRefund, razorpay: refundResponse }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({
+      error: "Failed to create refund",
+      details: err?.message || err,
+      razorpayError: err?.error || undefined,
+    }, { status: 500 });
   }
 }

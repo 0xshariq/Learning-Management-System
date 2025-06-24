@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-import formidable, { Fields, Files, File } from "formidable";
+import formidable, { Files, File } from "formidable";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Readable } from "stream";
 
 export const config = {
   api: {
@@ -11,13 +12,12 @@ export const config = {
   },
 };
 
-function getNodeRequest(req: NextRequest): import("http").IncomingMessage {
-  // NextRequest is not compatible with formidable, so we extract the raw Node.js request
-
-  interface NextRequestWithNode extends NextRequest {
-    req: import("http").IncomingMessage;
-  }
-  return (req as NextRequestWithNode).req;
+// Helper: Convert a buffer to a readable stream (for formidable)
+function bufferToStream(buffer: Buffer) {
+  const stream = new Readable();
+  stream.push(buffer);
+  stream.push(null);
+  return stream;
 }
 
 export async function POST(
@@ -34,12 +34,27 @@ export async function POST(
     return NextResponse.json({ error: "Missing courseId in params" }, { status: 400 });
   }
 
+  // Only run on Node.js runtime (not edge)
+  if (!process || !process.cwd) {
+    return NextResponse.json({ error: "This API only works in Node.js runtime." }, { status: 500 });
+  }
+
+  // Read the raw request body as a buffer
+  const body = Buffer.from(await req.arrayBuffer());
+
+  // Create a mock IncomingMessage for formidable
+  const mockReq = Object.assign(bufferToStream(body), {
+    headers: Object.fromEntries(req.headers.entries()),
+    method: req.method,
+    url: req.url,
+  });
+
   const form = formidable({ multiples: false, uploadDir: "/tmp", keepExtensions: true });
 
-  return new Promise<NextResponse>(resolve => {
+  return await new Promise<NextResponse>((resolve) => {
     form.parse(
-      getNodeRequest(req),
-      async (err: Error | null, fields: Fields, files: Files) => {
+      mockReq as unknown as import("http").IncomingMessage,
+      async (err: Error | null, _fields: Record<string, unknown>, files: Files) => {
         if (err) {
           resolve(NextResponse.json({ error: "Upload error" }, { status: 500 }));
           return;

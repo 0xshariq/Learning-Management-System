@@ -10,7 +10,17 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  // Serve static files from the /public/upload directory
+  // This is the default behavior, but you can add a rewrite for clarity or custom routes
+  async rewrites() {
+    return [
+      {
+        source: "/upload/:path*",
+        destination: "/upload/:path*",
+      },
+    ];
+  },
 };
-  
-  export default nextConfig;
+
+export default nextConfig;
