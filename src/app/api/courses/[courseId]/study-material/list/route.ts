@@ -21,6 +21,7 @@ export async function GET(
     }));
     return NextResponse.json({ files: fileList });
   } catch (err) {
-    return NextResponse.json({ files: [], error: "No study material found" });
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ files: [], error: errorMessage }, { status: 500 });
   }
 }

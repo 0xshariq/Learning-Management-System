@@ -10,9 +10,7 @@ import {
   Award,
   Clock,
   Globe,
-  CheckCircle,
-  DollarSign,
-  Timer,
+  CheckCircle
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FadeIn } from "@/components/animations/fade-in";

@@ -68,11 +68,11 @@ export async function POST(req: NextRequest) {
       .populate("student");
 
     return NextResponse.json({ refund: populatedRefund, razorpay: refundResponse }, { status: 201 });
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json({
-      error: "Failed to create refund",
-      details: err?.message || err,
-      razorpayError: err?.error || undefined,
+      error: err instanceof Error ? err.message : "An error occurred",
+      details: err instanceof Error ? err.message : err,
+      razorpayError: typeof err === "object" && err !== null && "error" in err ? err.error : "Unknown Razorpay error",
     }, { status: 500 });
   }
 }
