@@ -1,23 +1,38 @@
-import { NextResponse } from "next/server"
-import { dbConnect } from "@/lib/dbConnect"
-import { Review } from "@/models/review"
+import { NextResponse } from "next/server";
+import { dbConnect } from "@/lib/dbConnect";
+import { Review } from "@/models/review";
 
 export async function GET() {
   try {
-    await dbConnect()
+    await dbConnect();
 
-    // Get 3 random reviews from the last 30 days
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    // Use today's date as a seed to shuffle reviews in a deterministic way for the day
+    const today = new Date();
+    const seed =
+      today.getFullYear() * 10000 +
+      (today.getMonth() + 1) * 100 +
+      today.getDate();
 
+    // Add a random field based on the seed (pseudo-random for the day)
     const reviews = await Review.aggregate([
+      { $match: { rating: { $gte: 4 } } },
       {
-        $match: {
-          createdAt: { $gte: thirtyDaysAgo },
-          rating: { $gte: 4 }, // Only show good reviews (4+ stars)
+        $addFields: {
+          randomSort: {
+            $mod: [
+              {
+                $add: [
+                  { $toLong: "$_id" },
+                  seed,
+                ],
+              },
+              1000000,
+            ],
+          },
         },
       },
-      { $sample: { size: 3 } }, // Get 3 random reviews
+      { $sort: { randomSort: 1 } },
+      { $limit: 3 },
       {
         $lookup: {
           from: "students",
@@ -34,12 +49,8 @@ export async function GET() {
           as: "course",
         },
       },
-      {
-        $unwind: "$student",
-      },
-      {
-        $unwind: "$course",
-      },
+      { $unwind: "$student" },
+      { $unwind: "$course" },
       {
         $project: {
           _id: 1,
@@ -52,11 +63,11 @@ export async function GET() {
           "course.name": 1,
         },
       },
-    ])
+    ]);
 
-    return NextResponse.json({ reviews }, { status: 200 })
+    return NextResponse.json({ reviews }, { status: 200 });
   } catch (error) {
-    console.error("Error fetching featured reviews:", error)
-    return NextResponse.json({ message: "Failed to fetch reviews" }, { status: 500 })
+    console.error("Error fetching featured reviews:", error);
+    return NextResponse.json({ message: "Failed to fetch reviews" }, { status: 500 });
   }
 }

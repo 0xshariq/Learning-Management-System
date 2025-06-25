@@ -181,7 +181,7 @@ export default async function LearnPage(
   const { courseId, videoId } = params;
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.id) {
+  if (!session.user.id) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>

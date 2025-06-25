@@ -1,16 +1,16 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { StarIcon, User } from "lucide-react"
+import { User } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "../ui/label"
+import { Slider } from "@/components/ui/slider"
 
 interface ReviewData {
   _id: string
@@ -38,6 +38,30 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Always fetch latest reviews after submit
+  const fetchReviews = async () => {
+    try {
+      const res = await fetch(`/api/courses/${courseId}/reviews`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setReviews(data.reviews)
+      }
+    } catch (err) {
+      // Optionally handle fetch error
+      toast({
+        title: "Error",
+        description: "Failed to fetch latest reviews.",
+        variant: "destructive",
+      })
+    }
+  }
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +95,7 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
         body: JSON.stringify({
           rating,
           comment,
+          courseId,
         }),
       })
 
@@ -78,14 +103,12 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
         let errorData: { message?: string } = {}
         try {
           errorData = await response.json()
-        } catch {
-          // Ignore JSON parsing errors
-        }
+        } catch {}
         throw new Error(errorData.message || "Failed to submit review")
       }
 
-      const newReview = await response.json()
-      setReviews([newReview.review, ...reviews])
+      // Always fetch latest reviews after submit
+      await fetchReviews()
       setComment("")
       setRating(5)
 
@@ -105,29 +128,25 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
     }
   }
 
-  const StarRating = ({
+  // Use a slider for rating instead of stars
+  const RatingSlider = ({
     value,
     onChange,
     readonly = false,
-  }: { value: number; onChange?: (rating: number) => void; readonly?: boolean }) => {
-    return (
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Button
-            key={star}
-            type="button"
-            onClick={() => !readonly && onChange && onChange(star)}
-            className={`${!readonly && onChange ? "cursor-pointer hover:scale-110" : "cursor-default"} transition-transform p-1`}
-            tabIndex={!readonly && onChange ? 0 : -1}
-            aria-label={onChange ? `Set rating to ${star}` : `Rating: ${star}`}
-            disabled={readonly}
-          >
-            <StarIcon className={`h-5 w-5 ${star <= value ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-          </Button>
-        ))}
-      </div>
-    )
-  }
+  }: { value: number; onChange?: (rating: number) => void; readonly?: boolean }) => (
+    <div className="flex items-center gap-2">
+      <Slider
+        min={1}
+        max={5}
+        step={1}
+        value={[value]}
+        onValueChange={(val) => !readonly && onChange && onChange(val[0])}
+        disabled={readonly}
+        className="w-32"
+      />
+      <span className="text-sm font-medium">{value}/5</span>
+    </div>
+  )
 
   const averageRating =
     reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
@@ -138,7 +157,7 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
         <h3 className="text-2xl font-bold">Student Reviews</h3>
         {reviews.length > 0 && (
           <div className="flex items-center gap-2">
-            <StarRating value={Math.round(averageRating)} readonly />
+            <RatingSlider value={Math.round(averageRating)} readonly />
             <span className="text-sm text-muted-foreground">
               {averageRating.toFixed(1)} ({reviews.length} review{reviews.length !== 1 ? "s" : ""})
             </span>
@@ -155,13 +174,13 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
             <form onSubmit={handleSubmitReview} className="space-y-4">
               <div>
                 <Label className="block text-sm font-medium mb-2">Your Rating</Label>
-                <StarRating value={rating} onChange={setRating} />
+                <RatingSlider value={rating} onChange={setRating} />
               </div>
 
               <div>
-                <label htmlFor="comment" className="block text-sm font-medium mb-2">
+                <Label htmlFor="comment" className="block text-sm font-medium mb-2">
                   Your Review
-                </label>
+                </Label>
                 <Textarea
                   id="comment"
                   placeholder="Share your experience with this course..."
@@ -204,7 +223,7 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
                           })}
                         </p>
                       </div>
-                      <StarRating value={review.rating} readonly />
+                      <RatingSlider value={review.rating} readonly />
                     </div>
                     <p className="text-sm leading-relaxed">{review.comment}</p>
                   </div>
