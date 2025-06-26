@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { dbConnect } from "@/lib/dbConnect";
-import { Review } from "@/models/review";
+import { Review, reviewValidationSchema } from "@/models/review"; // Import validation schema from model
 import { Student } from "@/models/student";
 import { Course } from "@/models/course";
 import { authOptions } from "@/lib/auth";
@@ -31,7 +31,9 @@ interface FormattedReview {
   course: string;
   createdAt: Date;
 }
+
 export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -50,52 +52,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { rating, comment, courseId } = await request.json();
+    const body = await request.json();
 
-    // Validate courseId
-    if (!courseId || typeof courseId !== "string") {
-      return NextResponse.json({ message: "Invalid course ID provided." }, { status: 400 });
-    }
+    // Use validation schema from model, but adapt for API input (courseId instead of course)
+    const parseResult = reviewValidationSchema
+      .pick({ rating: true, comment: true })
+      .extend({ courseId: reviewValidationSchema.shape.course })
+      .safeParse({ ...body, courseId: body.courseId });
 
-    // Validate rating
-    if (
-      rating === undefined ||
-      rating === null ||
-      rating < 1 ||
-      rating > 5 ||
-      !Number.isInteger(rating)
-    ) {
+    if (!parseResult.success) {
       return NextResponse.json(
-        { message: "Rating must be a whole number between 1 and 5." },
+        { message: parseResult.error.errors[0]?.message || "Invalid input." },
         { status: 400 }
       );
     }
 
-    // Validate comment
-    if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
-      return NextResponse.json(
-        { message: "Review comment is required and cannot be empty." },
-        { status: 400 }
-      );
-    }
-
-    if (comment.trim().length < 10) {
-      return NextResponse.json(
-        { message: "Review comment must be at least 10 characters long." },
-        { status: 400 }
-      );
-    }
-
-    if (comment.trim().length > 1000) {
-      return NextResponse.json(
-        { message: "Review comment must be less than 1000 characters." },
-        { status: 400 }
-      );
-    }
+    const { rating, comment, courseId } = parseResult.data;
 
     await dbConnect();
 
-    // Check if course exists
     const course = await Course.findById(courseId);
     if (!course) {
       return NextResponse.json(
@@ -104,7 +79,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student is enrolled
     const student = await Student.findById(session.user.id);
     if (!student || !student.purchasedCourses?.includes(courseId)) {
       return NextResponse.json(
@@ -113,7 +87,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student has already reviewed this course
     const existingReview = await Review.findOne({
       student: session.user.id,
       course: courseId,
@@ -126,15 +99,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the review
     const review = await Review.create({
       rating,
-      comment: comment.trim(),
+      comment: comment?.trim(),
       student: session.user.id,
       course: courseId,
     });
 
-    // Populate the review with student data
     const populatedReview = await Review.findById(review._id)
       .populate("student", "name")
       .lean();
@@ -185,11 +156,8 @@ export async function GET(request: NextRequest) {
   try {
     await dbConnect();
 
-    // Extract courseId from the URL path (supports /api/courses/[courseId]/reviews)
     const url = request.nextUrl;
     const segments = url.pathname.split("/").filter(Boolean);
-    // Find the courseId based on the route structure
-    // e.g. ["api", "courses", "123", "reviews"] => courseId = "123"
     const courseIdx = segments.findIndex((seg) => seg === "courses");
     const courseId = courseIdx !== -1 && segments.length > courseIdx + 1 ? segments[courseIdx + 1] : null;
 
@@ -197,6 +165,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Invalid course ID provided." }, { status: 400 });
     }
 
+    // Always return all reviews for the course, newest first
     const reviews = await Review.find({ course: courseId })
       .populate("student", "name")
       .sort({ createdAt: -1 })

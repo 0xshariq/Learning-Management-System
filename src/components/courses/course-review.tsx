@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "../ui/label"
 import { Slider } from "@/components/ui/slider"
+import { reviewValidationSchema } from "@/models/review"
 
 interface ReviewData {
   _id: string
@@ -54,10 +55,9 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
         setReviews(data.reviews)
       }
     } catch (err) {
-      // Optionally handle fetch error
       toast({
         title: "Error",
-        description: "Failed to fetch latest reviews.",
+        description: err instanceof Error ? err.message : "Failed to fetch reviews",
         variant: "destructive",
       })
     }
@@ -79,6 +79,22 @@ export function CourseReviews({ courseId, initialReviews, isEnrolled }: CourseRe
       toast({
         title: "Enrollment required",
         description: "You must be enrolled in this course to leave a review.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Optional: client-side validation using Zod schema
+    const validation = reviewValidationSchema.safeParse({
+      rating,
+      comment,
+      course: courseId,
+      student: session?.user?.id || "",
+    })
+    if (!validation.success) {
+      toast({
+        title: "Validation error",
+        description: validation.error.errors[0]?.message || "Invalid review data.",
         variant: "destructive",
       })
       return

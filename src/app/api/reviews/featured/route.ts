@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/dbConnect";
 import { Review } from "@/models/review";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     await dbConnect();
@@ -13,7 +15,7 @@ export async function GET() {
       (today.getMonth() + 1) * 100 +
       today.getDate();
 
-    // Add a random field based on the seed (pseudo-random for the day)
+    // Aggregate featured reviews (rating >= 4), shuffle by seed, limit 3, and populate student/course
     const reviews = await Review.aggregate([
       { $match: { rating: { $gte: 4 } } },
       {
