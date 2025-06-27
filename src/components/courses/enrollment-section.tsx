@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { Loader2, CheckCircle, BookOpen } from "lucide-react"
+import { Loader2, CheckCircle, BookOpen, RefreshCw } from "lucide-react"
 import { SalePriceBlock, SaleTimer } from "@/components/courses/course-sales"
 
 interface SaleData {
@@ -52,7 +52,7 @@ export function EnrollmentSection({
       return
     }
 
-    if (session.user.role !== "student") {
+    if (session?.user.role !== "student") {
       toast({
         title: "Access denied",
         description: "Only students can enroll in courses. Please sign in with a student account.",
@@ -103,6 +103,12 @@ export function EnrollmentSection({
     )
   }
 
+  const handleRefundRequest = () => {
+    router.push(
+      `/refund?courseId=${encodeURIComponent(courseId)}&courseName=${encodeURIComponent(courseName)}&price=${sale ? sale.amount : price}`
+    )
+  }
+
   if (isEnrolled) {
     return (
       <div className="space-y-4">
@@ -119,6 +125,18 @@ export function EnrollmentSection({
         ) : (
           <Button className="w-full" size="lg" disabled>
             <BookOpen className="mr-2 h-4 w-4" /> No videos available yet
+          </Button>
+        )}
+        
+        {/* Refund button - only show for enrolled students */}
+        {session?.user?.role === "student" && (
+          <Button 
+            onClick={handleRefundRequest} 
+            variant="outline" 
+            className="w-full" 
+            size="sm"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Request Refund
           </Button>
         )}
       </div>
