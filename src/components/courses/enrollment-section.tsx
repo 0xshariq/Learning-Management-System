@@ -105,7 +105,7 @@ export function EnrollmentSection({
 
   const handleRefundRequest = () => {
     router.push(
-      `/refund?courseId=${encodeURIComponent(courseId)}&courseName=${encodeURIComponent(courseName)}&price=${sale ? sale.amount : price}`
+      `/request-refund?courseId=${encodeURIComponent(courseId)}&courseName=${encodeURIComponent(courseName)}&price=${sale ? sale.amount : price}&studentId=${session?.user?.id}`
     )
   }
 

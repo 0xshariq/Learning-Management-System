@@ -211,14 +211,14 @@ async function getCourseDetails(
 
 async function checkEnrollmentStatus(
   courseId: string,
-  userId?: string
+  studentId?: string
 ): Promise<boolean> {
-  if (!userId) return false;
+  if (!studentId) return false;
 
   await dbConnect();
 
   try {
-    const student = await Student.findById(userId).lean<{
+    const student = await Student.findById(studentId).lean<{
       purchasedCourses?: mongoose.Types.ObjectId[];
     }>();
     return (
@@ -234,9 +234,9 @@ async function checkEnrollmentStatus(
 
 async function checkTeacherOwnership(
   courseId: string,
-  userId?: string
+  teacherId?: string
 ): Promise<boolean> {
-  if (!userId) return false;
+  if (!teacherId) return false;
 
   await dbConnect();
 
@@ -244,7 +244,7 @@ async function checkTeacherOwnership(
     const course = await Course.findById(courseId).lean<{
       teacher?: mongoose.Types.ObjectId;
     }>();
-    return course?.teacher?.toString() === userId;
+    return course?.teacher?.toString() === teacherId;
   } catch (error) {
     console.error("Error checking teacher ownership:", error);
     return false;

@@ -5,16 +5,18 @@ import { Teacher } from "@/models/teacher";
 import { Course } from "@/models/course";
 import { Student } from "@/models/student";
 import { Review } from "@/models/review";
+import { RequestRefund } from "@/models/request-refund";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3, RefreshCw, Clock, CheckCircle, XCircle } from "lucide-react";
 import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import React from "react";
 import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
+import RefundRequestsSection from "@/components/teacher/refund-requests-section";
 
 // Sale interface (separate)
 interface SaleData {
@@ -76,6 +78,34 @@ interface IReview {
   };
 }
 
+interface IRefundRequest {
+  _id: string;
+  courseId: {
+    _id: string;
+    name: string;
+    price: number;
+  };
+  studentId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  amount: number;
+  reason?: string;
+  notes?: string;
+  refundReasonCategory: "duplicate" | "not_as_described" | "other";
+  requestStatus: "pending" | "accepted" | "rejected";
+  processedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  attachments?: string[];
+  requestedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default async function TeacherDashboard() {
   const session = await getServerSession(authOptions);
 
@@ -122,6 +152,16 @@ export default async function TeacherDashboard() {
     .populate("course", "name")
     .lean();
 
+  // Fetch refund requests for teacher's courses
+  const refundRequests: IRefundRequest[] = await RequestRefund.find({
+    courseId: { $in: courseIds },
+  })
+    .populate("courseId", "name price")
+    .populate("studentId", "name email")
+    .populate("processedBy", "name email")
+    .sort({ createdAt: -1 })
+    .lean();
+
   // Calculate average rating
   const averageRating: number =
     reviews.length > 0
@@ -136,6 +176,9 @@ export default async function TeacherDashboard() {
 
   // Get published courses count
   const publishedCourses = courses.filter((course) => course.isPublished).length;
+
+  // Get pending refund requests count
+  const pendingRefunds = refundRequests.filter((req) => req.requestStatus === "pending").length;
 
   // Fetch all active sales for teacher's courses using API route
   async function fetchSaleForCourse(courseId: string): Promise<SaleData | null> {
@@ -203,7 +246,7 @@ export default async function TeacherDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Courses</CardTitle>
@@ -255,6 +298,19 @@ export default async function TeacherDashboard() {
             <p className="text-xs text-muted-foreground mt-1">From {reviews.length} reviews</p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Refunds</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
+              <span className="text-2xl font-bold">{pendingRefunds}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Actions */}
@@ -297,6 +353,22 @@ export default async function TeacherDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Refund Requests Section */}
+      {refundRequests.length > 0 && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Refund Requests</h2>
+            {pendingRefunds > 0 && (
+              <Badge variant="destructive" className="text-sm">
+                {pendingRefunds} Pending
+              </Badge>
+            )}
+          </div>
+
+          <RefundRequestsSection initialRequests={refundRequests} />
+        </div>
+      )}
 
       {/* My Courses Section */}
       <div className="mb-8">

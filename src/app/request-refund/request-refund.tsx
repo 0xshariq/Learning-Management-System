@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { z } from "zod";
-import { refundSchema } from "@/models/refund";
+import { requestRefundSchema } from "@/models/request-refund";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSession } from "next-auth/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,20 +14,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, CreditCard, AlertCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, AlertCircle, FileText, Shield } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-type RefundFormType = z.infer<typeof refundSchema>;
+type RequestRefundFormType = z.infer<typeof requestRefundSchema>;
 
-export default function RefundPage() {
+export default function RequestRefundPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading] = useState<boolean>(true);
+  const [isEnrolled] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   
   const searchParams = useSearchParams();
   const courseId = searchParams.get("courseId");
   const courseName = searchParams.get("courseName");
   const price = searchParams.get("price");
+  const studentId = searchParams.get("studentId");
 
   const {
     register,
@@ -34,41 +40,57 @@ export default function RefundPage() {
     reset,
     setValue,
     formState: { errors, isSubmitting }
-  } = useForm<RefundFormType>({
-    resolver: zodResolver(refundSchema),
+  } = useForm<RequestRefundFormType>({
+    resolver: zodResolver(requestRefundSchema),
     defaultValues: {
       refundReasonCategory: "other",
-      refundMethod: "original",
+      requestStatus: "pending",
     },
   });
 
-  // Set course and price from URL params
+  // Check authentication and role
   useEffect(() => {
-    if (courseId && price) {
-      setValue("course", courseId);
+    if (session && session.user.role !== "student") {
+      setError("Only students can request refunds.");
+      setLoading(false);
+      return;
+    }
+
+    if (session && studentId && session.user.id !== studentId) {
+      setError("You can only request refunds for your own enrollments.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+  }, [session, studentId]);
+
+
+
+  // Set form values from URL params
+  useEffect(() => {
+    if (courseId && studentId && price) {
+      setValue("courseId", courseId);
+      setValue("studentId", studentId);
       setValue("amount", parseFloat(price));
     }
-  }, [courseId, price, setValue]);
+  }, [courseId, studentId, price, setValue]);
 
-  const onSubmit = async (data: RefundFormType) => {
+  const onSubmit = async (data: RequestRefundFormType) => {
     setSuccess(null);
     setError(null);
     
     try {
-      const res = await fetch("/api/refund", {
+      const res = await fetch("/api/request-refund", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          courseId,
-          price: parseFloat(price || "0"),
-        }),
+        body: JSON.stringify(data),
       });
       
       const result = await res.json();
       
       if (res.ok) {
-        setSuccess("Refund request submitted successfully. We will process your request within 5-7 business days.");
+        setSuccess("Refund request submitted successfully. Your request will be reviewed by the course instructor.");
         reset();
       } else {
         setError(result.error || "Failed to submit refund request.");
@@ -78,6 +100,7 @@ export default function RefundPage() {
     }
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -89,7 +112,8 @@ export default function RefundPage() {
     );
   }
 
-  if (!courseId || !courseName || !price) {
+  // Check for missing parameters
+  if (!courseId || !courseName || !price || !studentId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -111,6 +135,71 @@ export default function RefundPage() {
     );
   }
 
+  // Check authentication
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <Shield className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-muted-foreground mb-4">
+              Please sign in to request a refund.
+            </p>
+            <Button onClick={() => router.push("/role")}>
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check if user is a student
+  if (session.user.role !== "student") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              Only students can request refunds for courses.
+            </p>
+            <Link href="/courses">
+              <Button>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Courses
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check enrollment
+  if (!isEnrolled) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Not Enrolled</h2>
+            <p className="text-muted-foreground mb-4">
+              You are not enrolled in this course. Only enrolled students can request refunds.
+            </p>
+            <Link href={`/courses/${courseId}`}>
+              <Button>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Course
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -124,9 +213,9 @@ export default function RefundPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Course
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Request a Refund</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Request Refund</h1>
           <p className="mt-2 text-muted-foreground">
-            We&apos;re sorry to see you go. Please fill out the form below to request a refund.
+            Submit a refund request for review by the course instructor.
           </p>
         </div>
 
@@ -145,51 +234,58 @@ export default function RefundPage() {
                 <p className="text-sm font-semibold">{decodeURIComponent(courseName)}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Price Paid</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Amount Paid</Label>
                 <p className="text-sm font-semibold">₹{price}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Refund Form */}
+        {/* Process Info Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="mr-2 h-5 w-5" />
+              Refund Process
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>• Your refund request will be reviewed by the course instructor</p>
+              <p>• The instructor may accept or reject your request based on the course policy</p>
+              <p>• If approved, the refund will be processed within 5-7 business days</p>
+              <p>• You will receive an email notification about the status of your request</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Refund Request Form */}
         <Card>
           <CardHeader>
-            <CardTitle>Refund Details</CardTitle>
+            <CardTitle>Refund Request Details</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Razorpay Payment ID */}
-              <div>
-                <Label htmlFor="razorpayPaymentId">
-                  Razorpay Payment ID <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="razorpayPaymentId"
-                  {...register("razorpayPaymentId")}
-                  placeholder="e.g. pay_xxxxxxxxxxxxx"
-                  className="mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Copy the payment ID from your payment successful email or SMS
-                </p>
-                {errors.razorpayPaymentId && (
-                  <p className="text-red-500 text-xs mt-1">{errors.razorpayPaymentId.message}</p>
-                )}
-              </div>
+              {/* Hidden fields */}
+              <input type="hidden" {...register("courseId")} />
+              <input type="hidden" {...register("studentId")} />
+              <input type="hidden" {...register("amount")} />
 
               {/* Reason */}
               <div>
-                <Label htmlFor="reason">Reason for Refund</Label>
+                <Label htmlFor="reason">
+                  Reason for Refund Request <span className="text-red-500">*</span>
+                </Label>
                 <Textarea 
                   id="reason" 
                   {...register("reason")} 
-                  placeholder="Please describe why you want a refund..."
+                  placeholder="Please explain why you want a refund..."
                   className="mt-1"
                   rows={4}
+                  required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Optional: Help us understand how we can improve
+                  Be specific about your reason to help the instructor make a decision
                 </p>
                 {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason.message}</p>}
               </div>
@@ -201,7 +297,7 @@ export default function RefundPage() {
                 </Label>
                 <Select
                   defaultValue="other"
-                  onValueChange={value => setValue("refundReasonCategory", value as RefundFormType["refundReasonCategory"])}
+                  onValueChange={value => setValue("refundReasonCategory", value as RequestRefundFormType["refundReasonCategory"])}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select reason category" />
@@ -217,27 +313,20 @@ export default function RefundPage() {
                 )}
               </div>
 
-              {/* Refund Method */}
+              {/* Additional Notes */}
               <div>
-                <Label htmlFor="refundMethod">
-                  Refund Method <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  defaultValue="original"
-                  onValueChange={value => setValue("refundMethod", value as RefundFormType["refundMethod"])}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select refund method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="original">Original Payment Method</SelectItem>
-                    <SelectItem value="manual">Manual Bank Transfer</SelectItem>
-                    <SelectItem value="wallet">Wallet Credit</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.refundMethod && (
-                  <p className="text-red-500 text-xs mt-1">{errors.refundMethod.message}</p>
-                )}
+                <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                <Textarea 
+                  id="notes" 
+                  {...register("notes")} 
+                  placeholder="Any additional information you'd like to provide..."
+                  className="mt-1"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional: Provide any additional context or information
+                </p>
+                {errors.notes && <p className="text-red-500 text-xs mt-1">{errors.notes.message}</p>}
               </div>
 
               {/* Attachments */}
@@ -266,11 +355,12 @@ export default function RefundPage() {
 
               {/* Policy Note */}
               <div className="text-xs text-muted-foreground bg-gray-50 p-3 rounded-lg">
-                <p className="font-medium mb-1">Refund Policy:</p>
+                <p className="font-medium mb-1">Important Notes:</p>
                 <ul className="space-y-1">
-                  <li>• Refunds are processed within 5-7 business days</li>
-                  <li>• 30-day money-back guarantee applies</li>
-                  <li>• Refunds are subject to our terms and conditions</li>
+                  <li>• Refund requests are subject to instructor approval</li>
+                  <li>• Each course may have different refund policies</li>
+                  <li>• Processing time may vary based on the payment method</li>
+                  <li>• You will be notified via email about the status</li>
                 </ul>
               </div>
 
