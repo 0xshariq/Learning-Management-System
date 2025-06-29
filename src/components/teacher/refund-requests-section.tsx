@@ -48,7 +48,7 @@ export default function RefundRequestsSection({ initialRequests }: RefundRequest
     setLoadingStates(prev => ({ ...prev, [requestId]: true }));
 
     try {
-      const response = await fetch("/api/refund-request", {
+      const response = await fetch("/api/request-refund", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

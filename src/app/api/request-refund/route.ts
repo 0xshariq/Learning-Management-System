@@ -6,8 +6,6 @@ import { authOptions } from "@/lib/auth";
 import { Course } from "@/models/course";
 import { Student } from "@/models/student";
 
-export const dynamic = "force-dynamic";
-
 // POST - Create a new refund request
 export async function POST(req: NextRequest) {
   try {
@@ -31,16 +29,17 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate with Zod schema
-    const parseResult = requestRefundSchema.safeParse(data);
-    if (!parseResult.success) {
+    console.log("Received refund request data:", data);
+
+    // Extract required fields
+    const { courseId, studentId, amount, reason, notes, refundReasonCategory, attachments } = data;
+
+    // Validate required fields manually first
+    if (!courseId || !studentId || !amount || !reason) {
       return NextResponse.json({
-        error: "Validation failed",
-        details: parseResult.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+        error: "Missing required fields: courseId, studentId, amount, and reason are required."
       }, { status: 400 });
     }
-
-    const { courseId, studentId, amount, reason, notes, refundReasonCategory, attachments } = parseResult.data;
 
     // Verify the student making the request matches the session
     if (studentId !== session.user.id) {
@@ -57,13 +56,23 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
+    console.log("Course found:", course.name);
+
     // Verify student exists and is enrolled in the course
     const student = await Student.findById(studentId);
-    if (!student || !student.purchasedCourses?.includes(courseId)) {
+    if (!student) {
       return NextResponse.json({ 
-        error: "You are not enrolled in this course or not eligible for refund." 
+        error: "Student not found." 
+      }, { status: 404 });
+    }
+
+    if (!student.purchasedCourses?.includes(courseId)) {
+      return NextResponse.json({ 
+        error: "You are not enrolled in this course." 
       }, { status: 403 });
     }
+
+    console.log("Student verification passed");
 
     // Check if refund request already exists for this student and course
     const existingRequest = await RequestRefund.findOne({
@@ -78,24 +87,44 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create refund request
-    const refundRequest = await RequestRefund.create({
+    console.log("No existing request found, creating new one");
+
+    // Prepare request data
+    const requestData = {
       courseId,
       studentId,
-      amount,
+      amount: parseFloat(amount),
       reason,
-      notes,
-      refundReasonCategory,
+      notes: notes || "",
+      refundReasonCategory: refundReasonCategory || "other",
       attachments: attachments || [],
       requestStatus: "pending",
       requestedAt: new Date()
-    });
+    };
+
+    console.log("Request data to be created:", requestData);
+
+    // Validate with Zod schema
+    const parseResult = requestRefundSchema.safeParse(requestData);
+    if (!parseResult.success) {
+      console.error("Validation failed:", parseResult.error);
+      return NextResponse.json({
+        error: "Validation failed",
+        details: parseResult.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+      }, { status: 400 });
+    }
+
+    // Create refund request
+    const refundRequest = await RequestRefund.create(parseResult.data);
+    console.log("Refund request created:", refundRequest._id);
 
     // Populate the created request with course and student details
     const populatedRequest = await RequestRefund.findById(refundRequest._id)
       .populate("courseId", "name price")
       .populate("studentId", "name email")
       .lean();
+
+    console.log("Populated request:", populatedRequest);
 
     return NextResponse.json({
       message: "Refund request submitted successfully. It will be reviewed by the course instructor.",
@@ -115,7 +144,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error creating refund request:", error);
     return NextResponse.json({
-      error: "An unexpected error occurred while submitting your refund request. Please try again later."
+      error: "An unexpected error occurred while submitting your refund request. Please try again later.",
+      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 });
   }
 }
@@ -211,7 +241,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Error fetching refund requests:", error);
     return NextResponse.json({
-      error: "An error occurred while fetching refund requests. Please try again later."
+      error: error instanceof Error ? error.message : "An unexpected error occurred while fetching refund requests."
     }, { status: 500 });
   }
 }
@@ -275,6 +305,7 @@ export async function PUT(req: NextRequest) {
         requestStatus: status,
         processedBy: session.user.id,
         notes: notes || refundRequest.notes,
+        processedAt: new Date(),
         updatedAt: new Date()
       },
       { new: true }
@@ -290,7 +321,7 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     console.error("Error updating refund request:", error);
     return NextResponse.json({
-      error: "An unexpected error occurred while updating the refund request. Please try again later."
+      error: error instanceof Error ? error.message : "An unexpected error occurred while updating the refund request."
     }, { status: 500 });
   }
 }

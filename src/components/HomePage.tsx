@@ -276,9 +276,6 @@ export default function Home() {
                         <span className="font-bold text-base">
                           {course.sale ? (
                             <>
-                              <span className="line-through text-muted-foreground mr-2">
-                                ₹{course.price}
-                              </span>
                               <span>
                                 <SalePriceBlock
                                   sale={course.sale}

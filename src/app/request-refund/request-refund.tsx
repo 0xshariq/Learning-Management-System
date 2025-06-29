@@ -26,12 +26,13 @@ export default function RequestRefundPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mounted, setMounted] = useState(false);
   
   const searchParams = useSearchParams();
-  const courseId = searchParams.get("courseId");
-  const courseName = searchParams.get("courseName");
-  const price = searchParams.get("price");
-  const studentId = searchParams.get("studentId");
+  const courseId = searchParams?.get("courseId");
+  const courseName = searchParams?.get("courseName");
+  const price = searchParams?.get("price");
+  const studentId = searchParams?.get("studentId");
 
   const {
     register,
@@ -50,8 +51,15 @@ export default function RequestRefundPage() {
 
   const watchedCategory = watch("refundReasonCategory");
 
+  // Handle client-side mounting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Check authentication and role
   useEffect(() => {
+    if (!mounted) return;
+
     if (session && session.user.role !== "student") {
       setError("Only students can request refunds.");
       setLoading(false);
@@ -65,44 +73,77 @@ export default function RequestRefundPage() {
     }
 
     setLoading(false);
-  }, [session, studentId]);
+  }, [session, studentId, mounted]);
 
   // Set form values from URL params
   useEffect(() => {
-    if (courseId && studentId && price) {
-      setValue("courseId", courseId);
-      setValue("studentId", studentId);
-      setValue("amount", parseFloat(price));
-    }
-  }, [courseId, studentId, price, setValue]);
+    if (!mounted || !courseId || !studentId || !price) return;
+    
+    setValue("courseId", courseId);
+    setValue("studentId", studentId);
+    setValue("amount", parseFloat(price));
+  }, [courseId, studentId, price, setValue, mounted]);
 
   const onSubmit = async (data: RequestRefundFormType) => {
     setSuccess(null);
     setError(null);
     
+    console.log("Submitting form data:", data);
+    
     try {
       const res = await fetch("/api/request-refund", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          courseId: data.courseId,
+          studentId: data.studentId,
+          amount: data.amount,
+          reason: data.reason,
+          refundReasonCategory: data.refundReasonCategory,
+          notes: data.notes || "",
+          attachments: data.attachments || [],
+        }),
       });
       
-      const result = await res.json();
+      console.log("Response status:", res.status);
       
-      if (res.ok) {
-        setSuccess("Refund request submitted successfully. Your request will be reviewed by the course instructor within 24-48 hours.");
-        reset();
-        // Redirect to dashboard after 3 seconds
-        setTimeout(() => {
-          router.push("/student/dashboard");
-        }, 3000);
-      } else {
-        setError(result.error || "Failed to submit refund request.");
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.log("Error response:", errorText);
+        throw new Error(`HTTP ${res.status}: ${errorText}`);
       }
+      
+      const result = await res.json();
+      console.log("Success response:", result);
+      
+      setSuccess("Refund request submitted successfully. Your request will be reviewed by the course instructor within 24-48 hours.");
+      reset();
+      // Redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        router.push("/student/dashboard");
+      }, 3000);
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      console.error("Submit error:", err);
+      if (err instanceof Error && err.message.includes("<!DOCTYPE")) {
+        setError("API route not found. Please check if the API endpoint exists.");
+      } else {
+        setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      }
     }
   };
+
+  // Don't render until mounted (prevents hydration issues)
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {
@@ -264,6 +305,7 @@ export default function RequestRefundPage() {
               <input type="hidden" {...register("studentId")} />
               <input type="hidden" {...register("amount")} />
 
+              {/* Rest of your form remains the same... */}
               {/* Refund Reason Category */}
               <div>
                 <Label htmlFor="refundReasonCategory">
@@ -343,20 +385,6 @@ export default function RequestRefundPage() {
                 {errors.notes && <p className="text-red-500 text-xs mt-1">{errors.notes.message}</p>}
               </div>
 
-              {/* Attachments */}
-              <div>
-                <Label htmlFor="attachments">Supporting Documents (Optional)</Label>
-                <Input 
-                  id="attachments" 
-                  {...register("attachments.0")} 
-                  placeholder="https://example.com/screenshot.png or https://drive.google.com/..."
-                  className="mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload screenshots, receipts, or other supporting documents and paste the public URL here
-                </p>
-              </div>
-
               {/* Submit Button */}
               <Button 
                 type="submit" 
@@ -377,26 +405,13 @@ export default function RequestRefundPage() {
                 )}
               </Button>
 
-              {/* Policy Note */}
-              <div className="text-xs text-muted-foreground bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium mb-2">Important Guidelines:</p>
-                <ul className="space-y-1">
-                  <li>• Refund requests are reviewed by the course instructor</li>
-                  <li>• Each course may have different refund policies</li>
-                  <li>• Requests are typically reviewed within 24-48 hours</li>
-                  <li>• You will receive email notifications about status updates</li>
-                  <li>• If approved, processing time varies by payment method</li>
-                  <li>• Be honest and detailed in your explanation</li>
-                </ul>
-              </div>
-
               {/* Success/Error Alerts */}
               {success && (
                 <Alert variant="default" className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertTitle className="text-green-800">Request Submitted Successfully!</AlertTitle>
                   <AlertDescription className="text-green-700">
-                    {success} You will be redirected to your dashboard shortly.
+                    {success}
                   </AlertDescription>
                 </Alert>
               )}
@@ -411,7 +426,6 @@ export default function RequestRefundPage() {
             </form>
           </CardContent>
         </Card>
-
         {/* Help Section */}
         <Card className="mt-6">
           <CardContent className="pt-6">
