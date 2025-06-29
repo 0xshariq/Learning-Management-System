@@ -5,15 +5,16 @@ import { Course } from "@/models/course"
 import { Payment, paymentValidationSchema } from "@/models/payment"
 import { Coupon } from "@/models/coupon"
 import { Student } from "@/models/student"
+import { Sale } from "@/models/sales"
 import { z } from "zod"
 import crypto from "crypto"
 import Razorpay from "razorpay"
 import { authOptions } from "@/lib/auth"
 
-
-if(!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
   throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment variables")
 }
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    
     // Use the paymentValidationSchema from the model for validation
     const validation = paymentValidationSchema
       .omit({ student: true, course: true, amount: true, razorpayPaymentId: true, status: true })
@@ -38,7 +40,10 @@ export async function POST(req: Request) {
       .safeParse(body)
 
     if (!validation.success) {
-      return NextResponse.json({ message: "Invalid input data", errors: validation.error.format() }, { status: 400 })
+      return NextResponse.json({ 
+        message: "Invalid input data", 
+        errors: validation.error.format() 
+      }, { status: 400 })
     }
 
     await dbConnect()
@@ -58,35 +63,84 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "You have already purchased this course" }, { status: 400 })
     }
 
-    // Calculate amount with coupon if provided
+    // Start with original course price
     let amount = course.price
-    let coupon = null
+    let appliedSale = null
+    let appliedCoupon = null
 
+    // 1. First check for active sales on this course
+    const activeSale = await Sale.findOne({
+      course: courseId,
+      isActive: true,
+      startDate: { $lte: new Date() },
+      endDate: { $gte: new Date() }
+    })
+
+    if (activeSale) {
+      appliedSale = activeSale
+      // Apply sale discount
+      amount = activeSale.salePrice
+      console.log(`Sale applied: Original price ₹${course.price} -> Sale price ₹${amount}`)
+    }
+
+    // 2. Then check for coupon (applied on top of sale price if sale exists)
     if (couponCode) {
-      coupon = await Coupon.findOne({
+      const coupon = await Coupon.findOne({
         code: couponCode,
         expiresAt: { $gt: new Date() },
-        $or: [{ course: courseId }, { course: { $exists: false } }],
+        isActive: true,
+        $or: [{ course: courseId }, { course: { $exists: false } }]
       })
 
       if (coupon) {
-        amount = amount * (1 - coupon.discountPercentage / 100)
+        // Check if coupon usage limit is reached
+        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+          return NextResponse.json({ 
+            message: "Coupon usage limit exceeded" 
+          }, { status: 400 })
+        }
+
+        appliedCoupon = coupon
+        // Apply coupon discount on the current amount (which might already be discounted by sale)
+        const discountAmount = amount * (coupon.discountPercentage / 100)
+        amount = amount - discountAmount
+        console.log(`Coupon applied: ${coupon.discountPercentage}% discount -> Final price ₹${amount}`)
+      } else {
+        return NextResponse.json({ 
+          message: "Invalid or expired coupon code" 
+        }, { status: 400 })
       }
     }
 
-    // Create Razorpay order
-    const notes: Record<string, string | null> = {
+    // Ensure minimum amount (₹1)
+    amount = Math.max(amount, 1)
+
+    // Create Razorpay order with all necessary information in notes
+    const notes: Record<string, string> = {
       courseId: courseId,
       userId: userId,
-      couponId: coupon ? coupon._id.toString() : null,
+      originalPrice: course.price.toString(),
+      finalAmount: amount.toString(),
       paymentOption: paymentOption || "upi",
     }
+
+    if (appliedSale) {
+      notes.saleId = appliedSale._id.toString()
+      notes.salePrice = appliedSale.salePrice.toString()
+    }
+
+    if (appliedCoupon) {
+      notes.couponId = appliedCoupon._id.toString()
+      notes.couponCode = appliedCoupon.code
+      notes.couponDiscount = appliedCoupon.discountPercentage.toString()
+    }
+
     if (paymentOption === "card" && cardBrand) {
       notes.cardBrand = cardBrand
     }
 
     const options = {
-      amount: Math.round(amount * 100), // Razorpay expects amount in smallest currency unit (paise) in INR only
+      amount: Math.round(amount * 100), // Razorpay expects amount in paise
       currency: "INR",
       receipt: `receipt_order_${Date.now()}`,
       notes,
@@ -94,25 +148,46 @@ export async function POST(req: Request) {
 
     const order = await razorpay.orders.create(options)
 
-    return NextResponse.json(
-      {
-        order,
-        key: process.env.RAZORPAY_KEY_ID,
-        amount: Math.round(amount * 100),
-        currency: "INR",
-        name: course.name,
-        description: `Payment for ${course.name}`,
-        orderId: order.id,
-        prefill: {
-          name: session.user.name,
-          email: session.user.email,
-        },
+    // Prepare response with pricing breakdown
+    const pricingBreakdown = {
+      originalPrice: course.price,
+      saleDiscount: appliedSale ? course.price - appliedSale.salePrice : 0,
+      couponDiscount: appliedCoupon ? (appliedSale ? appliedSale.salePrice : course.price) * (appliedCoupon.discountPercentage / 100) : 0,
+      finalAmount: amount,
+      savings: course.price - amount
+    }
+
+    return NextResponse.json({
+      order,
+      key: process.env.RAZORPAY_KEY_ID,
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      name: course.name,
+      description: `Payment for ${course.name}`,
+      orderId: order.id,
+      prefill: {
+        name: session.user.name,
+        email: session.user.email,
       },
-      { status: 200 },
-    )
+      pricingBreakdown,
+      appliedSale: appliedSale ? {
+        id: appliedSale._id,
+        discountPercentage: appliedSale.discountPercentage,
+        salePrice: appliedSale.salePrice
+      } : null,
+      appliedCoupon: appliedCoupon ? {
+        id: appliedCoupon._id,
+        code: appliedCoupon.code,
+        discountPercentage: appliedCoupon.discountPercentage
+      } : null
+    }, { status: 200 })
+
   } catch (error) {
     console.error("Razorpay error:", error)
-    return NextResponse.json({ message: "Failed to create payment order" }, { status: 500 })
+    return NextResponse.json({ 
+      message: "Failed to create payment order",
+      error: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
 }
 
@@ -152,52 +227,110 @@ export async function PUT(req: Request) {
 
     const orderUserId = notes.userId
     const orderCourseId = notes.courseId
+    const orderSaleId = notes.saleId
     const orderCouponId = notes.couponId
+    const orderCouponCode = notes.couponCode
     const orderPaymentOption = notes.paymentOption
     const orderCardBrand = notes.cardBrand
+    const originalPrice = parseFloat(notes.originalPrice || "0")
+    const finalAmount = parseFloat(notes.finalAmount || "0")
 
     if (!orderUserId || !orderCourseId) {
       return NextResponse.json({ message: "Invalid order data" }, { status: 400 })
     }
 
-    // Create payment record
-    const payment = await Payment.create({
+    // Verify the user making the payment
+    if (orderUserId !== session.user.id) {
+      return NextResponse.json({ message: "User mismatch in payment verification" }, { status: 403 })
+    }
+
+    // Create payment record with all applied discounts
+    const paymentData: any = {
       student: orderUserId,
       course: orderCourseId,
-      amount: Number(order.amount) / 100,
+      amount: finalAmount,
+      originalAmount: originalPrice,
       razorpayPaymentId: razorpay_payment_id,
       razorpayOrderId: razorpay_order_id,
-      couponApplied: orderCouponId || undefined,
       paymentOption: orderPaymentOption || paymentOption || "upi",
-      cardBrand: orderCardBrand || cardBrand,
       status: "completed",
-    })
+    }
+
+    // Add sale information if applied
+    if (orderSaleId) {
+      paymentData.saleApplied = orderSaleId
+    }
+
+    // Add coupon information if applied
+    if (orderCouponId) {
+      paymentData.couponApplied = orderCouponId
+    }
+
+    // Add card brand if payment was made via card
+    if (orderCardBrand || cardBrand) {
+      paymentData.cardBrand = orderCardBrand || cardBrand
+    }
+
+    const payment = await Payment.create(paymentData)
+
+    // Update coupon usage count if coupon was used
+    if (orderCouponId) {
+      await Coupon.findByIdAndUpdate(orderCouponId, {
+        $inc: { usedCount: 1 }
+      })
+    }
+
+    // Update sale usage count if sale was applied
+    if (orderSaleId) {
+      await Sale.findByIdAndUpdate(orderSaleId, {
+        $inc: { usedCount: 1 }
+      })
+    }
 
     // Update user's purchased courses
     await Student.findByIdAndUpdate(orderUserId, {
-      $addToSet: { purchasedCourses: orderCourseId },
+      $addToSet: { purchasedCourses: orderCourseId }
     })
 
-    // Update course's students purchased
+    // Update course's students purchased and total revenue
     await Course.findByIdAndUpdate(orderCourseId, {
       $addToSet: { studentsPurchased: orderUserId },
+      $inc: { 
+        totalRevenue: finalAmount,
+        totalStudents: 1
+      }
     })
 
-    return NextResponse.json(
-      {
-        message: "Payment verified successfully",
-        payment: {
-          id: payment._id,
-          amount: payment.amount,
-          status: payment.status,
-          paymentOption: payment.paymentOption,
-          cardBrand: payment.cardBrand,
-        },
+    // Get the created payment with populated fields for response
+    const populatedPayment = await Payment.findById(payment._id)
+      .populate('course', 'name price')
+      .populate('student', 'name email')
+      .populate('couponApplied', 'code discountPercentage')
+      .populate('saleApplied', 'discountPercentage salePrice')
+
+    return NextResponse.json({
+      message: "Payment verified successfully",
+      payment: {
+        id: populatedPayment._id,
+        amount: populatedPayment.amount,
+        originalAmount: populatedPayment.originalAmount,
+        status: populatedPayment.status,
+        paymentOption: populatedPayment.paymentOption,
+        cardBrand: populatedPayment.cardBrand,
+        course: populatedPayment.course,
+        couponApplied: populatedPayment.couponApplied,
+        saleApplied: populatedPayment.saleApplied,
+        createdAt: populatedPayment.createdAt
       },
-      { status: 200 },
-    )
+      savings: originalPrice - finalAmount,
+      transactionId: razorpay_payment_id
+    }, { status: 200 })
+
   } catch (error) {
     console.error("Payment verification error:", error)
-    return NextResponse.json({ message: "Failed to verify payment" }, { status: 500 })
+    return NextResponse.json({ 
+      message: "Failed to verify payment",
+      error: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
 }
