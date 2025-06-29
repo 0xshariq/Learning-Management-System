@@ -4,6 +4,7 @@ import { dbConnect } from "@/lib/dbConnect";
 import { Student } from "@/models/student";
 import { Course } from "@/models/course";
 import { Review } from "@/models/review";
+import { RequestRefund } from "@/models/request-refund";
 import {
   Card,
   CardContent,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -23,6 +25,13 @@ import {
   PlayCircle,
   User,
   TrendingUp,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  DollarSign,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 
@@ -46,6 +55,35 @@ interface EnrolledCourseType {
   imageUrl?: string;
   teacher?: TeacherType;
   duration?: string;
+  price?: number;
+}
+
+interface RefundRequestType {
+  _id: string;
+  courseId: {
+    _id: string;
+    name: string;
+    price: number;
+  };
+  studentId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  amount: number;
+  reason?: string;
+  notes?: string;
+  refundReasonCategory: "duplicate" | "not_as_described" | "other";
+  requestStatus: "pending" | "accepted" | "rejected";
+  processedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  attachments?: string[];
+  requestedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export default async function StudentDashboard() {
@@ -75,10 +113,22 @@ export default async function StudentDashboard() {
     .populate("course", "name")
     .lean();
 
+  // Fetch student's refund requests
+  const refundRequests: RefundRequestType[] = await RequestRefund.find({
+    studentId: student._id,
+  })
+    .populate("courseId", "name price")
+    .populate("studentId", "name email")
+    .populate("processedBy", "name email")
+    .sort({ createdAt: -1 })
+    .lean();
+
   // Calculate stats
   const totalCourses = enrolledCourses.length;
   const completedCourses = 0; // Placeholder - would need progress tracking
   const totalReviews = reviews.length;
+  const pendingRefunds = refundRequests.filter(req => req.requestStatus === "pending").length;
+  const acceptedRefunds = refundRequests.filter(req => req.requestStatus === "accepted").length;
 
   const averageRating: number =
     reviews.length > 0
@@ -103,7 +153,7 @@ export default async function StudentDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -177,6 +227,23 @@ export default async function StudentDashboard() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Refund Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
+              <span className="text-2xl font-bold">{refundRequests.length}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingRefunds} pending • {acceptedRefunds} approved
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Actions */}
@@ -214,6 +281,143 @@ export default async function StudentDashboard() {
         </Card>
       </div>
 
+      {/* Refund Requests Section */}
+      {refundRequests.length > 0 && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Refund Requests</h2>
+            {pendingRefunds > 0 && (
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                {pendingRefunds} Pending Review
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid gap-4">
+            {refundRequests.slice(0, 3).map((request) => {
+              const getStatusBadge = (status: string) => {
+                switch (status) {
+                  case "pending":
+                    return (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pending Review
+                      </Badge>
+                    );
+                  case "accepted":
+                    return (
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Approved
+                      </Badge>
+                    );
+                  case "rejected":
+                    return (
+                      <Badge variant="destructive" className="bg-red-100 text-red-800">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Rejected
+                      </Badge>
+                    );
+                  default:
+                    return <Badge variant="outline">{status}</Badge>;
+                }
+              };
+
+              const getCategoryLabel = (category: string) => {
+                switch (category) {
+                  case "duplicate":
+                    return "Duplicate Payment";
+                  case "not_as_described":
+                    return "Not as Described";
+                  case "other":
+                    return "Other";
+                  default:
+                    return category;
+                }
+              };
+
+              return (
+                <Card key={request._id} className={`${
+                  request.requestStatus === "accepted" ? "border-l-4 border-l-green-500" :
+                  request.requestStatus === "rejected" ? "border-l-4 border-l-red-500" :
+                  "border-l-4 border-l-yellow-500"
+                }`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">{request.courseId.name}</CardTitle>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-4 w-4" />
+                            ₹{request.amount}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(request.requestedAt).toLocaleDateString()}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FileText className="h-4 w-4" />
+                            {getCategoryLabel(request.refundReasonCategory)}
+                          </div>
+                        </div>
+                      </div>
+                      {getStatusBadge(request.requestStatus)}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {request.reason && (
+                      <div>
+                        <h4 className="font-medium mb-1 text-sm">Reason:</h4>
+                        <p className="text-sm text-muted-foreground bg-gray-50 p-2 rounded">
+                          {request.reason}
+                        </p>
+                      </div>
+                    )}
+
+                    {request.processedBy && (
+                      <div className="text-xs text-muted-foreground">
+                        Processed by: {request.processedBy.name}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2">
+                      {request.requestStatus === "pending" && (
+                        <div className="flex items-center gap-2 text-yellow-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Awaiting instructor review...</span>
+                        </div>
+                      )}
+                      
+                      {request.requestStatus === "accepted" && (
+                        <Link href="/refund" className="flex-1">
+                          <Button className="w-full bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Proceed with Refund
+                          </Button>
+                        </Link>
+                      )}
+                      
+                      {request.requestStatus === "rejected" && (
+                        <div className="flex items-center gap-2 text-red-600">
+                          <XCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Request was rejected by instructor</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {refundRequests.length > 3 && (
+            <div className="text-center mt-4">
+              <Button variant="outline">View All Refund Requests</Button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* My Courses Section */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -228,6 +432,11 @@ export default async function StudentDashboard() {
             {enrolledCourses.map((course: EnrolledCourseType) => {
               // Calculate progress (placeholder - would need actual progress tracking)
               const progress = Math.floor(Math.random() * 100);
+
+              // Check if there's a refund request for this course
+              const courseRefundRequest = refundRequests.find(
+                req => req.courseId._id.toString() === course._id.toString()
+              );
 
               return (
                 <Card
@@ -249,6 +458,25 @@ export default async function StudentDashboard() {
                     <div className="absolute top-2 right-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
                       {progress}% Complete
                     </div>
+                    {courseRefundRequest && (
+                      <div className="absolute top-2 left-2">
+                        {courseRefundRequest.requestStatus === "pending" && (
+                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+                            Refund Pending
+                          </Badge>
+                        )}
+                        {courseRefundRequest.requestStatus === "accepted" && (
+                          <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                            Refund Approved
+                          </Badge>
+                        )}
+                        {courseRefundRequest.requestStatus === "rejected" && (
+                          <Badge variant="destructive" className="bg-red-100 text-red-800 text-xs">
+                            Refund Rejected
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <CardHeader className="pb-3">
@@ -277,6 +505,13 @@ export default async function StudentDashboard() {
                           {progress > 0 ? "Continue" : "Start"}
                         </Button>
                       </Link>
+                      {!courseRefundRequest && course.price && course.price > 0 && (
+                        <Link href={`/request-refund?courseId=${course._id}&courseName=${encodeURIComponent(course.name)}&price=${course.price}&studentId=${student._id}`}>
+                          <Button variant="outline" size="sm">
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
