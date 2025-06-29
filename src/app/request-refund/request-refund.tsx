@@ -301,9 +301,9 @@ export default function RequestRefundPage() {
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Hidden fields */}
-              <input type="hidden" {...register("courseId")} />
-              <input type="hidden" {...register("studentId")} />
-              <input type="hidden" {...register("amount")} />
+              <Input type="hidden" {...register("courseId")} />
+              <Input type="hidden" {...register("studentId")} />
+              <Input type="hidden" {...register("amount")} />
 
               {/* Rest of your form remains the same... */}
               {/* Refund Reason Category */}
@@ -431,7 +431,7 @@ export default function RequestRefundPage() {
           <CardContent className="pt-6">
             <h3 className="font-medium mb-3">Need Help?</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>• <strong>Can't find course details?</strong> Go to your dashboard and access the refund option from there</p>
+              <p>• <strong>Can&apos;t find course details?</strong> Go to your dashboard and access the refund option from there</p>
               <p>• <strong>Technical issues?</strong> Contact our support team for assistance</p>
               <p>• <strong>Questions about refund policy?</strong> Check the course page for specific policies</p>
             </div>

@@ -166,8 +166,8 @@ export async function GET(req: NextRequest) {
     const courseId = searchParams.get("courseId");
     const status = searchParams.get("status");
 
-    let query: any = {};
-
+    
+    const query: Record<string, unknown> = {};
     if (session.user.role === "student") {
       // Students can only see their own refund requests
       query.studentId = session.user.id;

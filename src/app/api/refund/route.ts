@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
 
     // Handle Razorpay API errors
     if (typeof err === "object" && err !== null && "error" in err) {
-      const razorpayError = err as any;
+      const razorpayError = err as { error: { code?: string; description?: string; message?: string } };
       return NextResponse.json({
         error: "Razorpay refund failed.",
         details: razorpayError.error?.description || razorpayError.message || "Unable to process refund with payment gateway.",
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET endpoint to fetch user's refund records
-export async function GET(req: NextRequest) {
+export async function GET() {
   await dbConnect();
 
   const session = await getServerSession(authOptions);

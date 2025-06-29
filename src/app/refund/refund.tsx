@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { z } from "zod";
-import { refundSchema } from "@/models/refund";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
@@ -173,7 +172,7 @@ export default function RefundPage() {
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Enter the payment ID from your payment confirmation. It starts with "pay_" followed by alphanumeric characters.
+                  Enter the payment ID from your payment confirmation. It starts with &quot;pay_&quot; followed by alphanumeric characters.
                 </p>
                 {errors.razorpayPaymentId && (
                   <p className="text-red-500 text-xs mt-1">{errors.razorpayPaymentId.message}</p>
@@ -285,14 +284,14 @@ export default function RefundPage() {
             <div className="space-y-3 text-sm text-muted-foreground">
               <div>
                 <p className="font-medium text-gray-700">Check your email:</p>
-                <p>Look for an email from "Razorpay" or "noreply@razorpay.com" with subject containing "Payment Successful"</p>
+                <p>Look for an email from &quot;Razorpay&quot; or &quot;noreply@razorpay.com&quot; with subject containing &quot;Payment Successful&quot;</p>
               </div>
               <div>
                 <p className="font-medium text-gray-700">Check your SMS:</p>
                 <p>Look for SMS from Razorpay or your bank mentioning the payment ID</p>
               </div>
               <div>
-                <p className="font-medium text-gray-700">Still can't find it?</p>
+                <p className="font-medium text-gray-700">Still can&apos;t find it?</p>
                 <p>Contact our support team with your course name and approximate payment date</p>
               </div>
             </div>

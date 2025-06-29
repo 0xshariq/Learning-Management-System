@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3, RefreshCw, Clock, CheckCircle, XCircle } from "lucide-react";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3, RefreshCw } from "lucide-react";
 import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import React from "react";
