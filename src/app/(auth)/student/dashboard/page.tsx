@@ -389,7 +389,7 @@ export default async function StudentDashboard() {
                       )}
                       
                       {request.requestStatus === "accepted" && (
-                        <Link href={`/refund?courseId=${request.courseId._id}&courseName=${encodeURIComponent(request.courseId.name)}&price=${request.courseId.price}&studentId=${student._id}`} className="flex-1">
+                        <Link href={`/refund?courseId=${request.courseId._id}&courseName=${encodeURIComponent(request.courseId.name)}&studentId=${student._id}`} className="flex-1">
                           <Button className="w-full bg-green-600 hover:bg-green-700">
                             <CheckCircle className="h-4 w-4 mr-2" />
                             Proceed with Refund

@@ -20,6 +20,66 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 })
 
+// Helper function to get sale pricing
+async function getSalePricing(courseId: string) {
+  try {
+    const activeSale = await Sale.findOne({
+      course: courseId,
+      saleTime: { $lte: new Date() },
+      expiryTime: { $gte: new Date() }
+    })
+
+    if (activeSale) {
+      return {
+        hasSale: true,
+        salePrice: activeSale.amount,
+        saleData: activeSale
+      }
+    }
+
+    return { hasSale: false, salePrice: null, saleData: null }
+  } catch (error) {
+    console.error("Error fetching sale data:", error)
+    return { hasSale: false, salePrice: null, saleData: null }
+  }
+}
+
+// Helper function to get coupon pricing
+async function getCouponPricing(courseId: string, couponCode: string, basePrice: number) {
+  try {
+    const coupon = await Coupon.findOne({
+      code: couponCode,
+      expiresAt: { $gt: new Date() },
+      $or: [{ course: courseId }, { course: { $exists: false } }]
+    })
+
+    if (coupon) {
+      let discountAmount = 0
+      
+      // Check if it's percentage discount or fixed amount discount
+      if (coupon.discountPercentage) {
+        discountAmount = basePrice * (coupon.discountPercentage / 100)
+      } else if (coupon.discountAmount) {
+        discountAmount = coupon.discountAmount
+      }
+
+      const finalPrice = Math.max(basePrice - discountAmount, 1) // Minimum ₹1
+
+      return {
+        hasCoupon: true,
+        discountAmount,
+        finalPrice,
+        couponData: coupon
+      }
+    }
+
+    return { hasCoupon: false, discountAmount: 0, finalPrice: basePrice, couponData: null }
+  } catch (error) {
+    console.error("Error fetching coupon data:", error)
+    return { hasCoupon: false, discountAmount: 0, finalPrice: basePrice, couponData: null }
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -69,42 +129,20 @@ export async function POST(req: Request) {
     let appliedCoupon = null
 
     // 1. First check for active sales on this course
-    const activeSale = await Sale.findOne({
-      course: courseId,
-      isActive: true,
-      startDate: { $lte: new Date() },
-      endDate: { $gte: new Date() }
-    })
-
-    if (activeSale) {
-      appliedSale = activeSale
-      // Apply sale discount
-      amount = activeSale.salePrice
+    const saleResult = await getSalePricing(courseId)
+    if (saleResult.hasSale) {
+      appliedSale = saleResult.saleData
+      amount = saleResult.salePrice
       console.log(`Sale applied: Original price ₹${course.price} -> Sale price ₹${amount}`)
     }
 
     // 2. Then check for coupon (applied on top of sale price if sale exists)
     if (couponCode) {
-      const coupon = await Coupon.findOne({
-        code: couponCode,
-        expiresAt: { $gt: new Date() },
-        isActive: true,
-        $or: [{ course: courseId }, { course: { $exists: false } }]
-      })
-
-      if (coupon) {
-        // Check if coupon usage limit is reached
-        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-          return NextResponse.json({ 
-            message: "Coupon usage limit exceeded" 
-          }, { status: 400 })
-        }
-
-        appliedCoupon = coupon
-        // Apply coupon discount on the current amount (which might already be discounted by sale)
-        const discountAmount = amount * (coupon.discountPercentage / 100)
-        amount = amount - discountAmount
-        console.log(`Coupon applied: ${coupon.discountPercentage}% discount -> Final price ₹${amount}`)
+      const couponResult = await getCouponPricing(courseId, couponCode, amount)
+      if (couponResult.hasCoupon) {
+        appliedCoupon = couponResult.couponData
+        amount = couponResult.finalPrice
+        console.log(`Coupon applied: Discount ₹${couponResult.discountAmount} -> Final price ₹${amount}`)
       } else {
         return NextResponse.json({ 
           message: "Invalid or expired coupon code" 
@@ -126,13 +164,19 @@ export async function POST(req: Request) {
 
     if (appliedSale) {
       notes.saleId = appliedSale._id.toString()
-      notes.salePrice = appliedSale.salePrice.toString()
+      notes.salePrice = appliedSale.amount.toString()
     }
 
     if (appliedCoupon) {
       notes.couponId = appliedCoupon._id.toString()
       notes.couponCode = appliedCoupon.code
-      notes.couponDiscount = appliedCoupon.discountPercentage.toString()
+      if (appliedCoupon.discountPercentage) {
+        notes.couponDiscount = appliedCoupon.discountPercentage.toString()
+        notes.couponType = "percentage"
+      } else if (appliedCoupon.discountAmount) {
+        notes.couponDiscount = appliedCoupon.discountAmount.toString()
+        notes.couponType = "fixed"
+      }
     }
 
     if (paymentOption === "card" && cardBrand) {
@@ -151,8 +195,12 @@ export async function POST(req: Request) {
     // Prepare response with pricing breakdown
     const pricingBreakdown = {
       originalPrice: course.price,
-      saleDiscount: appliedSale ? course.price - appliedSale.salePrice : 0,
-      couponDiscount: appliedCoupon ? (appliedSale ? appliedSale.salePrice : course.price) * (appliedCoupon.discountPercentage / 100) : 0,
+      saleDiscount: appliedSale ? course.price - appliedSale.amount : 0,
+      couponDiscount: appliedCoupon ? 
+        (appliedCoupon.discountPercentage ? 
+          (appliedSale ? appliedSale.amount : course.price) * (appliedCoupon.discountPercentage / 100) :
+          appliedCoupon.discountAmount || 0
+        ) : 0,
       finalAmount: amount,
       savings: course.price - amount
     }
@@ -172,13 +220,15 @@ export async function POST(req: Request) {
       pricingBreakdown,
       appliedSale: appliedSale ? {
         id: appliedSale._id,
-        discountPercentage: appliedSale.discountPercentage,
-        salePrice: appliedSale.salePrice
+        salePrice: appliedSale.amount,
+        saleTime: appliedSale.saleTime,
+        expiryTime: appliedSale.expiryTime
       } : null,
       appliedCoupon: appliedCoupon ? {
         id: appliedCoupon._id,
         code: appliedCoupon.code,
-        discountPercentage: appliedCoupon.discountPercentage
+        discountPercentage: appliedCoupon.discountPercentage,
+        discountAmount: appliedCoupon.discountAmount
       } : null
     }, { status: 200 })
 
@@ -201,7 +251,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentOption, cardBrand } = body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentOption } = body
 
     // Verify signature
     const generated_signature = crypto
@@ -227,11 +277,7 @@ export async function PUT(req: Request) {
 
     const orderUserId = notes.userId
     const orderCourseId = notes.courseId
-    const orderSaleId = notes.saleId
-    const orderCouponId = notes.couponId
-    const orderCouponCode = notes.couponCode
     const orderPaymentOption = notes.paymentOption
-    const orderCardBrand = notes.cardBrand
     const originalPrice = parseFloat(notes.originalPrice || "0")
     const finalAmount = parseFloat(notes.finalAmount || "0")
 
@@ -245,7 +291,7 @@ export async function PUT(req: Request) {
     }
 
     // Create payment record with all applied discounts
-    const paymentData: any = {
+    const paymentData = {
       student: orderUserId,
       course: orderCourseId,
       amount: finalAmount,
@@ -256,36 +302,7 @@ export async function PUT(req: Request) {
       status: "completed",
     }
 
-    // Add sale information if applied
-    if (orderSaleId) {
-      paymentData.saleApplied = orderSaleId
-    }
-
-    // Add coupon information if applied
-    if (orderCouponId) {
-      paymentData.couponApplied = orderCouponId
-    }
-
-    // Add card brand if payment was made via card
-    if (orderCardBrand || cardBrand) {
-      paymentData.cardBrand = orderCardBrand || cardBrand
-    }
-
     const payment = await Payment.create(paymentData)
-
-    // Update coupon usage count if coupon was used
-    if (orderCouponId) {
-      await Coupon.findByIdAndUpdate(orderCouponId, {
-        $inc: { usedCount: 1 }
-      })
-    }
-
-    // Update sale usage count if sale was applied
-    if (orderSaleId) {
-      await Sale.findByIdAndUpdate(orderSaleId, {
-        $inc: { usedCount: 1 }
-      })
-    }
 
     // Update user's purchased courses
     await Student.findByIdAndUpdate(orderUserId, {
@@ -305,8 +322,8 @@ export async function PUT(req: Request) {
     const populatedPayment = await Payment.findById(payment._id)
       .populate('course', 'name price')
       .populate('student', 'name email')
-      .populate('couponApplied', 'code discountPercentage')
-      .populate('saleApplied', 'discountPercentage salePrice')
+      .populate('couponApplied', 'code discountPercentage discountAmount')
+      .populate('saleApplied', 'amount saleTime expiryTime')
 
     return NextResponse.json({
       message: "Payment verified successfully",

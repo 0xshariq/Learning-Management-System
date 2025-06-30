@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import {  useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -26,11 +26,10 @@ export default function RefundPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   const searchParams = useSearchParams();
   const courseId = searchParams.get("courseId");
   const courseName = searchParams.get("courseName");
-  const price = searchParams.get("price");
   const studentId = searchParams.get("studentId");
 
   const {
@@ -61,7 +60,6 @@ export default function RefundPage() {
         body: JSON.stringify({
           courseId,
           studentId,
-          amount: parseFloat(price || "0"),
           razorpayPaymentId: data.razorpayPaymentId,
           refundMethod: data.refundMethod,
         }),
@@ -82,7 +80,7 @@ export default function RefundPage() {
     }
   };
 
-  if (!courseId || !courseName || !price || !studentId) {
+  if (!courseId || !courseName || !studentId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -135,10 +133,6 @@ export default function RefundPage() {
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">Course Name</Label>
                 <p className="text-sm font-semibold">{decodeURIComponent(courseName)}</p>
-              </div>
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">Refund Amount</Label>
-                <p className="text-sm font-semibold text-green-600">₹{price}</p>
               </div>
             </div>
           </CardContent>
