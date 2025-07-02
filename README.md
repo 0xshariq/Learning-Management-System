@@ -130,8 +130,7 @@ learning-management-system/
 │   │   └── refund/             # Refund processing UI
 │   ├── components/             # Reusable UI components
 │   │   ├── ui/                 # Base UI components
-│   │   ├── forms/              # Form components
-│   │   └── layouts/            # Layout components
+│   │   ├── animations/         # Animation components
 │   ├── lib/                    # Utility libraries
 │   │   ├── auth.ts            # Authentication config
 │   │   ├── dbConnect.ts       # Database connection
@@ -1146,10 +1145,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - **Community Support**: Discord/Slack channels
 
 ### Contact Information
-- **Email**: support@edulearn.com
-- **Website**: https://edulearn.com
-- **Documentation**: https://docs.edulearn.com
-- **GitHub**: https://github.com/edulearn/lms
+- **Email**: khanshariq92213@gmail.com
+- **Website**: https://learning-management-system-taupe-eta.vercel.app/
+- **GitHub**: https://github.com/0xshariq/edulearn-lms
 
 ---
 
