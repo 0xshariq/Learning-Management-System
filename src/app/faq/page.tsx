@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FadeIn, SlideIn, StaggerChildren } from "@/components/animations";
+import { FadeIn, SlideIn, StaggerChildren } from "@/components/animations/index";
 import { useCallback } from "react";
 
 interface FAQ {
