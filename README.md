@@ -1044,7 +1044,7 @@ const getCachedCourses = unstable_cache(
 # Required software
 - Node.js (v18 or higher)
 - MongoDB (v5.0 or higher)
-- npm or yarn package manager
+- npm or pnpm package manager
 ```
 
 ### Environment Variables
@@ -1058,14 +1058,7 @@ NEXTAUTH_SECRET=your-nextauth-secret
 RAZORPAY_KEY_ID=your-razorpay-key-id
 RAZORPAY_KEY_SECRET=your-razorpay-key-secret
 
-# Email Service (optional)
-EMAIL_SERVER_USER=your-email@example.com
-EMAIL_SERVER_PASSWORD=your-email-password
-EMAIL_SERVER_HOST=smtp.example.com
-EMAIL_SERVER_PORT=587
-EMAIL_FROM=noreply@yourdomain.com
-
-# File Storage (optional)
+# Video Storage
 CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
 CLOUDINARY_API_KEY=your-cloudinary-api-key
 CLOUDINARY_API_SECRET=your-cloudinary-api-secret
@@ -1111,24 +1104,15 @@ npx vercel --prod
 ## 🎯 Future Enhancements
 
 ### Planned Features
-1. **Mobile App**: React Native mobile application
+1. **Announcement**: General and Course Specific Announcement
 2. **Live Streaming**: Real-time class functionality
 3. **AI Recommendations**: Machine learning course suggestions
 4. **Multi-language Support**: Internationalization
 5. **Advanced Analytics**: Detailed learning analytics
 6. **Gamification**: Badges, achievements, leaderboards
 7. **Social Learning**: Discussion forums, study groups
-8. **API Marketplace**: Third-party integrations
-9. **White-label Solution**: Customizable branding
-10. **Advanced Content Types**: Interactive quizzes, assignments
+8.  **Advanced Content Types**: Interactive quizzes, assignments
 
-### Technical Improvements
-- **Microservices Architecture**: Service separation
-- **GraphQL API**: Alternative to REST endpoints
-- **Real-time Features**: WebSocket integration
-- **Advanced Caching**: Redis implementation
-- **CDN Integration**: Global content delivery
-- **Progressive Web App**: PWA capabilities
 
 ---
 
