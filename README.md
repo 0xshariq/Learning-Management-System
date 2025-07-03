@@ -896,8 +896,6 @@ DELETE /api/courses/[id]         # Delete course (teacher/admin)
 
 # Course interaction
 POST   /api/courses/[id]/enroll  # Enroll in course (after payment)
-GET    /api/courses/[id]/progress # Get learning progress
-POST   /api/courses/[id]/complete # Mark lesson as complete
 ```
 
 ### Payment Endpoints
