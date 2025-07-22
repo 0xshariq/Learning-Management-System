@@ -105,7 +105,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       // Handle Google sign-in for students only
       if (account?.provider === "google") {
         try {

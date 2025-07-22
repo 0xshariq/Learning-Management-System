@@ -59,7 +59,7 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
         clearInterval(tokenRefreshInterval.current)
       }
     }
-  }, [liveClassId])
+  }, [liveClassId, fetchStreamData])
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -233,7 +233,7 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
           <CardContent className="text-center py-8">
             <p className="text-muted-foreground">Unable to load stream.</p>
             <p className="text-sm text-muted-foreground">
-              Please check if you're enrolled in this course or if the stream is active.
+              Please check if you&apos;re enrolled in this course or if the stream is active.
             </p>
           </CardContent>
         </Card>

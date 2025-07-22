@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,7 +22,6 @@ interface LiveClass {
 }
 
 export default function StudentLiveClassList() {
-  const { data: session } = useSession()
   const [liveClasses, setLiveClasses] = useState<LiveClass[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -60,7 +58,7 @@ export default function StudentLiveClassList() {
       return <Badge variant="destructive" className="animate-pulse">🔴 LIVE</Badge>
     }
     
-    const variants: Record<string, any> = {
+    const variants: Record<string, "secondary" | "destructive" | "outline"> = {
       scheduled: 'secondary',
       live: 'destructive',
       ended: 'outline',
@@ -71,10 +69,6 @@ export default function StudentLiveClassList() {
 
   const isUpcoming = (scheduledDate: string) => {
     return new Date(scheduledDate) > new Date()
-  }
-
-  const canJoin = (liveClass: LiveClass) => {
-    return liveClass.status === 'live' || liveClass.isLive
   }
 
   if (loading) {
