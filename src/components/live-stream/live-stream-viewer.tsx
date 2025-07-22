@@ -50,35 +50,62 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
   const playerRef = useRef<HTMLIFrameElement>(null)
   const tokenRefreshInterval = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    fetchStreamData()
-    
-    return () => {
-      // Cleanup token refresh interval on component unmount
-      if (tokenRefreshInterval.current) {
-        clearInterval(tokenRefreshInterval.current)
-      }
-    }
-  }, [liveClassId, fetchStreamData])
+  const refreshToken = useCallback(async () => {
+    if (!streamData?.token) return
 
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
-    }
-  }, [chatMessages])
+    try {
+      const response = await fetch('/api/live-classes/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: streamData.token })
+      })
 
-  useEffect(() => {
-    // Set up token refresh interval when we have a token
-    if (streamData?.token && tokenExpiry) {
-      setupTokenRefresh()
-    }
-    
-    return () => {
-      if (tokenRefreshInterval.current) {
-        clearInterval(tokenRefreshInterval.current)
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Update stream data with new token
+        setStreamData(prev => prev ? {
+          ...prev,
+          token: data.token,
+          playerUrl: prev.playerUrl.replace(streamData.token, data.token),
+          chatUrl: prev.chatUrl.replace(streamData.token, data.token)
+        } : null)
+
+        // Update expiry time
+        const newExpiryTime = Date.now() + (data.expiresIn * 1000)
+        setTokenExpiry(newExpiryTime)
+
+        console.log('Token refreshed successfully')
+      } else {
+        console.error('Failed to refresh token')
+        toast({
+          title: "Session Warning",
+          description: "Your session will expire soon. Please refresh the page.",
+          variant: "destructive"
+        })
       }
+    } catch (error) {
+      console.error('Error refreshing token:', error)
     }
-  }, [streamData?.token, tokenExpiry, setupTokenRefresh])
+  }, [streamData?.token])
+
+  const setupTokenRefresh = useCallback(() => {
+    if (tokenRefreshInterval.current) {
+      clearInterval(tokenRefreshInterval.current)
+    }
+
+    // Refresh token 30 minutes before expiry
+    const refreshTime = 30 * 60 * 1000 // 30 minutes in milliseconds
+    const timeUntilRefresh = (tokenExpiry || 0) - Date.now() - refreshTime
+
+    if (timeUntilRefresh > 0) {
+      tokenRefreshInterval.current = setTimeout(async () => {
+        await refreshToken()
+        // Set up next refresh
+        setupTokenRefresh()
+      }, timeUntilRefresh)
+    }
+  }, [tokenExpiry, refreshToken])
 
   const fetchStreamData = useCallback(async () => {
     try {
@@ -126,62 +153,35 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
     }
   }, [liveClassId])
 
-  const setupTokenRefresh = useCallback(() => {
-    if (tokenRefreshInterval.current) {
-      clearInterval(tokenRefreshInterval.current)
-    }
-
-    // Refresh token 30 minutes before expiry
-    const refreshTime = 30 * 60 * 1000 // 30 minutes in milliseconds
-    const timeUntilRefresh = (tokenExpiry || 0) - Date.now() - refreshTime
-
-    if (timeUntilRefresh > 0) {
-      tokenRefreshInterval.current = setTimeout(async () => {
-        await refreshToken()
-        // Set up next refresh
-        setupTokenRefresh()
-      }, timeUntilRefresh)
-    }
-  }, [tokenExpiry, refreshToken])
-
-  const refreshToken = useCallback(async () => {
-    if (!streamData?.token) return
-
-    try {
-      const response = await fetch('/api/live-classes/refresh-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: streamData.token })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Update stream data with new token
-        setStreamData(prev => prev ? {
-          ...prev,
-          token: data.token,
-          playerUrl: prev.playerUrl.replace(streamData.token, data.token),
-          chatUrl: prev.chatUrl.replace(streamData.token, data.token)
-        } : null)
-
-        // Update expiry time
-        const newExpiryTime = Date.now() + (data.expiresIn * 1000)
-        setTokenExpiry(newExpiryTime)
-
-        console.log('Token refreshed successfully')
-      } else {
-        console.error('Failed to refresh token')
-        toast({
-          title: "Session Warning",
-          description: "Your session will expire soon. Please refresh the page.",
-          variant: "destructive"
-        })
+  useEffect(() => {
+    fetchStreamData()
+    
+    return () => {
+      // Cleanup token refresh interval on component unmount
+      if (tokenRefreshInterval.current) {
+        clearInterval(tokenRefreshInterval.current)
       }
-    } catch (error) {
-      console.error('Error refreshing token:', error)
     }
-  }, [streamData?.token])
+  }, [liveClassId, fetchStreamData])
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+    }
+  }, [chatMessages])
+
+  useEffect(() => {
+    // Set up token refresh interval when we have a token
+    if (streamData?.token && tokenExpiry) {
+      setupTokenRefresh()
+    }
+    
+    return () => {
+      if (tokenRefreshInterval.current) {
+        clearInterval(tokenRefreshInterval.current)
+      }
+    }
+  }, [streamData?.token, tokenExpiry, setupTokenRefresh])
 
   const sendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault()

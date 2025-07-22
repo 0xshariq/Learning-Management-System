@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { dbConnect } from "@/lib/dbConnect"
@@ -7,8 +7,24 @@ import { Teacher } from "@/models/teacher"
 import { Student } from "@/models/student"
 import { generateJWTToken, generateStreamUrls } from "@/lib/zenstream"
 
+interface StreamResponse {
+  token: string
+  streamId: string
+  playerUrl: string
+  chatUrl: string
+  serverUrl: string | undefined
+  role: 'teacher' | 'student'
+  liveClass: {
+    title: string
+    description: string | undefined
+    scheduledDate: Date
+    status: 'scheduled' | 'live' | 'ended' | 'cancelled'
+    isLive: boolean
+  }
+  streamKey?: string
+}
+
 export async function POST(
-  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -57,15 +73,15 @@ export async function POST(
 
     // Generate JWT token for stream access
     const token = generateJWTToken(liveClass.streamId, userId, userRole)
-    
+
     // Generate stream URLs with token
     const streamUrls = generateStreamUrls(liveClass.streamId)
-    
+
     // Replace token placeholder with actual token
     const playerUrl = streamUrls.playerUrl.replace('{GENERATED_JWT_TOKEN}', token)
     const chatUrl = streamUrls.chatUrl.replace('{GENERATED_JWT_TOKEN}', token)
 
-    const response = {
+    const response: StreamResponse = {
       token,
       streamId: liveClass.streamId,
       playerUrl,

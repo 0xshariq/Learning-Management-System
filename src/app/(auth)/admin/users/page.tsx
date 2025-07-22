@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -79,22 +79,23 @@ interface TeacherType {
 }
 
 interface AdminUsersPageProps {
-  students: StudentType[];
-  teachers: TeacherType[];
-  admins: AdminType[];
+  students?: StudentType[];
+  teachers?: TeacherType[];
+  admins?: AdminType[];
 }
 
 export default function AdminUsersPage({
-  students: initialStudents,
-  teachers: initialTeachers,
-  admins: initialAdmins,
-}: AdminUsersPageProps) {
-  const [students, setStudents] = useState(initialStudents);
-  const [teachers, setTeachers] = useState(initialTeachers);
-  const [admins, setAdmins] = useState(initialAdmins);
+  students: initialStudents = [],
+  teachers: initialTeachers = [],
+  admins: initialAdmins = [],
+}: AdminUsersPageProps = {}) {
+  const [students, setStudents] = useState<StudentType[]>(initialStudents);
+  const [teachers, setTeachers] = useState<TeacherType[]>(initialTeachers);
+  const [admins, setAdmins] = useState<AdminType[]>(initialAdmins);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
   const [suspendDialog, setSuspendDialog] = useState<{
     open: boolean;
     userId: string;
@@ -110,6 +111,34 @@ export default function AdminUsersPage({
   });
 
   const router = useRouter();
+
+  // Fetch all users data
+  useEffect(() => {
+    const fetchUsersData = async () => {
+      try {
+        setDataLoading(true);
+        setError(null);
+
+        const response = await fetch('/api/admin/users');
+        const data = await response.json();
+
+        if (response.ok) {
+          setStudents(data.students || []);
+          setTeachers(data.teachers || []);
+          setAdmins(data.admins || []);
+        } else {
+          setError(data.error || 'Failed to load user data');
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setError('Failed to load user data');
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchUsersData();
+  }, []);
 
   const handleSuspendAccount = async () => {
     setLoading(suspendDialog.userId);
@@ -226,21 +255,29 @@ export default function AdminUsersPage({
         </Alert>
       )}
 
-      <Tabs defaultValue="students" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-8">
-          <TabsTrigger value="students" className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4" />
-            Students ({students.length})
-          </TabsTrigger>
-          <TabsTrigger value="teachers" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Teachers ({teachers.length})
-          </TabsTrigger>
-          <TabsTrigger value="admins" className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Admins ({admins.length})
-          </TabsTrigger>
-        </TabsList>
+      {dataLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading user data...</p>
+          </div>
+        </div>
+      ) : (
+        <Tabs defaultValue="students" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="students" className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Students ({students?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="teachers" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Teachers ({teachers?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="admins" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Admins ({admins?.length || 0})
+            </TabsTrigger>
+          </TabsList>
 
         <TabsContent value="students">
           <Card>
@@ -263,7 +300,7 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student: StudentType) => (
+                  {(students || []).map((student: StudentType) => (
                     <TableRow key={student._id.toString()}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <UserCircle className="h-5 w-5 text-muted-foreground" />
@@ -372,7 +409,7 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teachers.map((teacher: TeacherType) => (
+                  {(teachers || []).map((teacher: TeacherType) => (
                     <TableRow key={teacher._id.toString()}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-muted-foreground" />
@@ -484,7 +521,7 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {admins.map((admin: AdminType) => (
+                  {(admins || []).map((admin: AdminType) => (
                     <TableRow key={admin._id.toString()}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-muted-foreground" />
@@ -569,6 +606,7 @@ export default function AdminUsersPage({
           </Card>
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Suspend/Activate Confirmation Dialog */}
       <AlertDialog open={suspendDialog.open} onOpenChange={(open) => 
