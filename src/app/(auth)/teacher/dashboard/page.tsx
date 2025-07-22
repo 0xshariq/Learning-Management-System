@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, TrendingUp, BarChart3, RefreshCw } from "lucide-react";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, BarChart3, RefreshCw, Video } from "lucide-react";
 import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import React from "react";
@@ -335,6 +335,16 @@ export default async function TeacherDashboard() {
           </Card>
         </Link>
 
+        <Link href="/teacher/live-classes">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Video className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <h3 className="font-medium">Live Classes</h3>
+              <p className="text-sm text-muted-foreground">Manage live streaming</p>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Link href="/teacher/reviews">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
@@ -344,14 +354,6 @@ export default async function TeacherDashboard() {
             </CardContent>
           </Card>
         </Link>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6 text-center">
-            <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
-            <h3 className="font-medium">Insights</h3>
-            <p className="text-sm text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Refund Requests Section */}

@@ -32,6 +32,7 @@ import {
   DollarSign,
   Calendar,
   FileText,
+  Video,
 } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 
@@ -247,7 +248,7 @@ export default async function StudentDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
+      <div className="grid md:grid-cols-4 gap-4 mb-8">
         <Link href="/courses/all">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
@@ -255,6 +256,18 @@ export default async function StudentDashboard() {
               <h3 className="font-medium">Browse Courses</h3>
               <p className="text-sm text-muted-foreground">
                 Discover new learning opportunities
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/student/live-classes">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Video className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <h3 className="font-medium">Live Classes</h3>
+              <p className="text-sm text-muted-foreground">
+                Join live streaming sessions
               </p>
             </CardContent>
           </Card>
