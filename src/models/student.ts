@@ -15,7 +15,7 @@ const studentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false },
     purchasedCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
     progress: [{ type: mongoose.Schema.Types.ObjectId, ref: "CourseProgress" }],
@@ -23,6 +23,7 @@ const studentSchema = new mongoose.Schema(
 
     // Authentication fields
     isBlocked: { type: Boolean, default: false },
+    isGoogleUser: { type: Boolean, default: false },
 
     // Security fields
     loginAttempts: { type: Number, default: 0 },

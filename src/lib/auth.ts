@@ -105,6 +105,54 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // Handle Google sign-in for students only
+      if (account?.provider === "google") {
+        try {
+          await dbConnect()
+          
+          // Check if student already exists
+          let existingStudent = await Student.findOne({ email: user.email })
+          
+          if (!existingStudent) {
+            // Create new student account
+            existingStudent = new Student({
+              name: user.name,
+              email: user.email,
+              password: "", // Google users don't need password
+              profileImage: user.image,
+              isGoogleUser: true,
+              purchasedCourses: [],
+              enrolledCourses: [],
+              reviews: [],
+              isBlocked: false,
+              loginAttempts: 0,
+            })
+            
+            await existingStudent.save()
+            console.log(`New student created via Google: ${user.email}`)
+          } else if (!existingStudent.isGoogleUser) {
+            // Update existing student to be a Google user
+            existingStudent.isGoogleUser = true
+            existingStudent.profileImage = user.image || existingStudent.profileImage
+            await existingStudent.save()
+          }
+          
+          // Update user object with database ID
+          user.id = existingStudent._id.toString()
+          user.role = "student"
+          user.isAdmin = false
+          user.isBlocked = existingStudent.isBlocked || false
+          
+          return true
+        } catch (error) {
+          console.error("Error handling Google sign-in:", error)
+          return false
+        }
+      }
+      
+      return true
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
