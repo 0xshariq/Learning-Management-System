@@ -59,7 +59,7 @@ export async function POST(
     const token = generateJWTToken(liveClass.streamId, userId, userRole)
     
     // Generate stream URLs with token
-    const streamUrls = generateStreamUrls(liveClass.streamId, liveClass.chatSecret)
+    const streamUrls = generateStreamUrls(liveClass.streamId)
     
     // Replace token placeholder with actual token
     const playerUrl = streamUrls.playerUrl.replace('{GENERATED_JWT_TOKEN}', token)
