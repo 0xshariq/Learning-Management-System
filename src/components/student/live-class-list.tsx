@@ -23,6 +23,7 @@ interface LiveClass {
 }
 
 export default function StudentLiveClassList() {
+  const { data: session } = useSession()
   const [liveClasses, setLiveClasses] = useState<LiveClass[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -59,7 +60,7 @@ export default function StudentLiveClassList() {
       return <Badge variant="destructive" className="animate-pulse">🔴 LIVE</Badge>
     }
     
-    const variants: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
+    const variants: Record<string, any> = {
       scheduled: 'secondary',
       live: 'destructive',
       ended: 'outline',
@@ -70,6 +71,10 @@ export default function StudentLiveClassList() {
 
   const isUpcoming = (scheduledDate: string) => {
     return new Date(scheduledDate) > new Date()
+  }
+
+  const canJoin = (liveClass: LiveClass) => {
+    return liveClass.status === 'live' || liveClass.isLive
   }
 
   if (loading) {

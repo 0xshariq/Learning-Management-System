@@ -59,7 +59,7 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
         clearInterval(tokenRefreshInterval.current)
       }
     }
-  }, [liveClassId, fetchStreamData])
+  }, [liveClassId])
 
   useEffect(() => {
     if (chatScrollRef.current) {

@@ -28,7 +28,7 @@ export function generateStreamCredentials(): StreamCredentials {
   }
 }
 
-export function generateStreamUrls(streamId: string) {
+export function generateStreamUrls(streamId: string, chatSecret: string) {
   const playerUrl = `${process.env.NEXT_PUBLIC_ZENSTREAM_PLAYER_URL}?liveId=${streamId}&token={GENERATED_JWT_TOKEN}`
   const chatUrl = `${process.env.NEXT_PUBLIC_ZENSTREAM_CHAT_URL}?liveId=${streamId}&token={GENERATED_JWT_TOKEN}`
   

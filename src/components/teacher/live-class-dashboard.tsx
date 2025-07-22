@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
-import { Plus, Play, Square, Users, Copy } from 'lucide-react'
+import { Plus, Play, Square, Edit, Trash2, Users, Copy } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface LiveClass {
@@ -34,11 +34,13 @@ interface Course {
 }
 
 export default function TeacherLiveClassDashboard() {
+  const { data: session } = useSession()
   const [liveClasses, setLiveClasses] = useState<LiveClass[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [streamCredentials, setStreamCredentials] = useState<Record<string, unknown> | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState('')
+  const [streamCredentials, setStreamCredentials] = useState<any>(null)
 
   const [newLiveClass, setNewLiveClass] = useState({
     course: '',
@@ -204,7 +206,7 @@ export default function TeacherLiveClassDashboard() {
   }
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
+    const variants: Record<string, any> = {
       scheduled: 'secondary',
       live: 'destructive',
       ended: 'outline',
