@@ -214,19 +214,24 @@ export async function POST(req: NextRequest) {
     const populatedRefund = await Refund.findById(refundDoc._id)
       .populate("courseId", "name price")
       .populate("studentId", "name email")
-      .populate("processedBy", "name email");
+      .populate("processedBy", "name email")
+      .lean();
 
     return NextResponse.json({
       message: "Refund processed successfully.",
       refundId: razorpayRefundResponse.id, // Return Razorpay refund ID
       refund: {
-        _id: populatedRefund._id,
+        _id: populatedRefund._id.toString(),
         status: populatedRefund.status,
         amount: populatedRefund.amount,
         refundId: populatedRefund.refundId,
         refundMethod: populatedRefund.refundMethod,
         refundedAt: populatedRefund.refundedAt,
-        course: populatedRefund.courseId,
+        course: {
+          _id: populatedRefund.courseId._id.toString(),
+          name: populatedRefund.courseId.name,
+          price: populatedRefund.courseId.price
+        },
         createdAt: populatedRefund.createdAt
       },
       razorpayResponse: {
@@ -291,19 +296,28 @@ export async function GET() {
     const refunds = await Refund.find({ studentId: session.user.id })
       .populate("courseId", "name price")
       .populate("processedBy", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
 
     return NextResponse.json<{ refunds: RefundResponse[] }>({
-      refunds: refunds.map((refund: RefundResponse): RefundResponse => ({
-        _id: refund._id,
+      refunds: refunds.map((refund: any): RefundResponse => ({
+        _id: refund._id.toString(),
         amount: refund.amount,
         status: refund.status,
         refundId: refund.refundId,
         refundMethod: refund.refundMethod,
         refundedAt: refund.refundedAt,
-        course: refund.course,
-        processedBy: refund.processedBy,
+        course: {
+          _id: refund.courseId._id.toString(),
+          name: refund.courseId.name,
+          price: refund.courseId.price
+        },
+        processedBy: refund.processedBy ? {
+          _id: refund.processedBy._id.toString(),
+          name: refund.processedBy.name,
+          email: refund.processedBy.email
+        } : null,
         createdAt: refund.createdAt,
         updatedAt: refund.updatedAt
       }))

@@ -37,6 +37,8 @@ export async function POST(
 
     const liveClass = await LiveClass.findById(params.id)
       .populate('course', 'title')
+      .lean()
+      .lean()
 
     if (!liveClass) {
       return NextResponse.json({ error: "Live class not found" }, { status: 404 })

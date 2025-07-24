@@ -26,6 +26,7 @@ export default async function AdminPaymentsPage() {
     .populate("course", "name price")
     .sort({ createdAt: -1 })
     .limit(100)
+    .lean()
 
   // Calculate total revenue
   const totalRevenue = payments.reduce((sum, payment) => {

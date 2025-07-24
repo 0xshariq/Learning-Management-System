@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     const populatedLiveClass = await LiveClass.findById(liveClass._id)
       .populate('course', 'title')
       .populate('teacher', 'name email')
+      .lean()
 
     return NextResponse.json({
       message: "Live class scheduled successfully",
@@ -101,6 +102,7 @@ export async function GET(request: NextRequest) {
       .populate('course', 'title')
       .populate('teacher', 'name email')
       .sort({ scheduledDate: -1 })
+      .lean()
 
     return NextResponse.json({ liveClasses })
 

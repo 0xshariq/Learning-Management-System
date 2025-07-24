@@ -21,6 +21,7 @@ export async function GET(
     const liveClass = await LiveClass.findById(params.id)
       .populate('course', 'title')
       .populate('teacher', 'name email')
+      .lean()
 
     if (!liveClass) {
       return NextResponse.json({ error: "Live class not found" }, { status: 404 })
@@ -94,7 +95,7 @@ export async function PATCH(
       params.id,
       updateData,
       { new: true }
-    ).populate('course', 'title').populate('teacher', 'name email')
+    ).populate('course', 'title').populate('teacher', 'name email').lean()
 
     return NextResponse.json({
       message: "Live class status updated successfully",

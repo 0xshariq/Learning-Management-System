@@ -324,6 +324,7 @@ export async function PUT(req: Request) {
       .populate('student', 'name email')
       .populate('couponApplied', 'code discountPercentage discountAmount')
       .populate('saleApplied', 'amount saleTime expiryTime')
+      .lean()
 
     return NextResponse.json({
       message: "Payment verified successfully",

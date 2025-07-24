@@ -129,15 +129,19 @@ export default async function TeacherDashboard() {
       : teacher._id;
 
   // Fetch courses created by the teacher (handle both ObjectId and string)
-  const courses: ICourse[] = await Course.find({
+  const coursesRaw = await Course.find({
     $or: [{ teacher: teacherId }, { teacher: teacherId.toString() }],
   }).lean();
 
-  const courseIds: string[] = courses.map((course) =>
-    typeof course._id === "string"
-      ? course._id
-      : (course._id as mongoose.Types.ObjectId).toString()
-  );
+  // Serialize courses to ensure all ObjectIds are converted to strings
+  const courses: ICourse[] = coursesRaw.map((course: any) => ({
+    ...course,
+    _id: course._id.toString(),
+    teacher: course.teacher.toString(),
+    studentsPurchased: course.studentsPurchased?.map((id: any) => id.toString()) || [],
+  }));
+
+  const courseIds: string[] = courses.map((course) => course._id);
 
   // Count total students across all courses
   const totalStudents = await Student.countDocuments({
@@ -145,15 +149,29 @@ export default async function TeacherDashboard() {
   });
 
   // Fetch reviews for teacher's courses
-  const reviews: IReview[] = await Review.find({
+  const reviewsRaw = await Review.find({
     course: { $in: courseIds },
   })
     .populate("student", "name")
     .populate("course", "name")
     .lean();
 
+  // Serialize reviews to ensure all ObjectIds are converted to strings
+  const reviews: IReview[] = reviewsRaw.map((review: any) => ({
+    ...review,
+    _id: review._id.toString(),
+    student: {
+      ...review.student,
+      _id: review.student._id.toString(),
+    },
+    course: {
+      ...review.course,
+      _id: review.course._id.toString(),
+    },
+  }));
+
   // Fetch refund requests for teacher's courses
-  const refundRequests: IRefundRequest[] = await RequestRefund.find({
+  const refundRequestsRaw = await RequestRefund.find({
     courseId: { $in: courseIds },
   })
     .populate("courseId", "name price")
@@ -161,6 +179,24 @@ export default async function TeacherDashboard() {
     .populate("processedBy", "name email")
     .sort({ createdAt: -1 })
     .lean();
+
+  // Serialize refund requests to ensure all ObjectIds are converted to strings
+  const refundRequests: IRefundRequest[] = refundRequestsRaw.map((request: any) => ({
+    ...request,
+    _id: request._id.toString(),
+    courseId: {
+      ...request.courseId,
+      _id: request.courseId._id.toString(),
+    },
+    studentId: {
+      ...request.studentId,
+      _id: request.studentId._id.toString(),
+    },
+    processedBy: request.processedBy ? {
+      ...request.processedBy,
+      _id: request.processedBy._id.toString(),
+    } : null,
+  }));
 
   // Calculate average rating
   const averageRating: number =

@@ -188,7 +188,7 @@ export async function PATCH(
       courseId,
       { $set: data },
       { new: true }
-    ).populate("teacher", "name email");
+    ).populate("teacher", "name email").lean();
 
     return NextResponse.json({ message: "Course updated successfully", course: updatedCourse }, { status: 200 });
   } catch (error) {
@@ -291,7 +291,7 @@ export async function PUT(
       courseId,
       { $set: data },
       { new: true }
-    ).populate("teacher", "name email");
+    ).populate("teacher", "name email").lean();
 
     return NextResponse.json(
       { message: "Course updated successfully", course: updatedCourse },
