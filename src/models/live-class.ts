@@ -3,7 +3,7 @@ import { z } from "zod"
 
 const liveClassSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
-  teacher: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  teacher: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
   title: { type: String, required: true },
   description: { type: String },
   scheduledDate: { type: Date, required: true },
@@ -14,7 +14,7 @@ const liveClassSchema = new mongoose.Schema({
   chatSecret: { type: String, required: true },
   startedAt: { type: Date },
   endedAt: { type: Date },
-  attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }],
   recordingUrl: { type: String },
   status: { 
     type: String, 

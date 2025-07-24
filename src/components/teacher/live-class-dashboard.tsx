@@ -73,7 +73,7 @@ export default function TeacherLiveClassDashboard() {
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch('/api/courses?teacher=true')
+      const response = await fetch('/api/teacher/courses')
       if (response.ok) {
         const data = await response.json()
         setCourses(data.courses)
