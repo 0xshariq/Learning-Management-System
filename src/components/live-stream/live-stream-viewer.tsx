@@ -83,11 +83,26 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
           description: "Your session will expire soon. Please refresh the page.",
           variant: "destructive"
         })
+        
+        // If token refresh fails, try to fetch stream data again after 5 seconds
+        setTimeout(() => {
+          fetchStreamData()
+        }, 5000)
       }
     } catch (error) {
       console.error('Error refreshing token:', error)
+      toast({
+        title: "Connection Error",
+        description: "Lost connection to stream. Attempting to reconnect...",
+        variant: "destructive"
+      })
+      
+      // If refresh fails, try to reconnect after 5 seconds
+      setTimeout(() => {
+        fetchStreamData()
+      }, 5000)
     }
-  }, [streamData?.token])
+  }, [streamData?.token, fetchStreamData])
 
   const setupTokenRefresh = useCallback(() => {
     if (tokenRefreshInterval.current) {

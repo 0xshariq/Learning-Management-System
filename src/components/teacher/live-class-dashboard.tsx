@@ -94,7 +94,7 @@ export default function TeacherLiveClassDashboard() {
     e.preventDefault()
     
     try {
-      const response = await fetch('/api/live-classes', {
+      const response = await fetch('/api/teacher/live-classes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newLiveClass)
