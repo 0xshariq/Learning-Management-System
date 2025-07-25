@@ -24,6 +24,7 @@ import {
   BarChart3,
   Users,
   PlusCircle,
+  Star,
 } from "lucide-react";
 
 // Role-specific navigation configurations
@@ -32,6 +33,7 @@ const roleNavConfigs = {
     mainNav: [
       { href: "/", label: "Home" },
       { href: "/courses", label: "Browse Courses" },
+      { href: "/reviews", label: "Reviews" },
       { href: "/student/dashboard", label: "My Learning" },
     ],
     dropdownItems: [
@@ -44,12 +46,14 @@ const roleNavConfigs = {
     mainNav: [
       { href: "/", label: "Home" },
       { href: "/courses", label: "Browse Courses" },
+      { href: "/reviews", label: "Reviews" },
       { href: "/teacher/dashboard", label: "Dashboard" },
       { href: "/teacher/courses", label: "My Courses" },
     ],
     dropdownItems: [
       { href: "/teacher/profile", label: "Profile", icon: User },
       { href: "/teacher/courses", label: "My Courses", icon: BookOpen },
+      { href: "/teacher/reviews", label: "My Reviews", icon: Star },
       {
         href: "/teacher/courses/create",
         label: "Create Course",
@@ -62,6 +66,7 @@ const roleNavConfigs = {
   admin: {
     mainNav: [
       { href: "/", label: "Home" },
+      { href: "/reviews", label: "Reviews" },
       { href: "/admin/dashboard", label: "Dashboard" },
       { href: "/admin/users", label: "Users" },
       { href: "/admin/courses", label: "Courses" },
@@ -76,10 +81,26 @@ const roleNavConfigs = {
   },
 };
 
-const defaultNavConfig = {
+const studentNavConfig = {
   mainNav: [
     { href: "/", label: "Home" },
     { href: "/courses", label: "Courses" },
+    { href: "/reviews", label: "Reviews" },
+    { href: "/about", label: "About" },
+  ],
+  dropdownItems: [
+    { href: "/student/dashboard", label: "Dashboard" },
+    { href: "/student/my-courses", label: "My Courses" },
+    { href: "/student/profile", label: "Profile" },
+  ],
+};
+
+// Default navigation config for users with no role or unauthenticated
+const defaultNavConfig = {
+  mainNav: [
+    { href: "/", label: "Home" },
+    { href: "/courses", label: "Browse Courses" },
+    { href: "/reviews", label: "Reviews" },
     { href: "/about", label: "About" },
   ],
   dropdownItems: [],
@@ -104,7 +125,6 @@ export function Navbar() {
         defaultNavConfig
       : defaultNavConfig;
 
-  // Removed getProfileLink to fix the eslint error
 
   const getDashboardLink = () => {
     if (!session?.user?.role) return "/role";

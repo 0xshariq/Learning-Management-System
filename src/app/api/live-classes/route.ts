@@ -26,9 +26,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 })
     }
 
-    const teacher = await Teacher.findOne({ email: session.user.email })
-    if (!teacher || course.teacher.toString() !== teacher._id.toString()) {
+    // Check if teacher owns this course
+    if (course.teacher.toString() !== session.user.id) {
       return NextResponse.json({ error: "You can only create live classes for your own courses" }, { status: 403 })
+    }
+
+    // Check for duplicate live classes at the same time
+    const existingLiveClass = await LiveClass.findOne({
+      teacher: session.user.id,
+      course: validatedData.course,
+      scheduledDate: validatedData.scheduledDate,
+      status: { $ne: 'cancelled' }
+    })
+
+    if (existingLiveClass) {
+      return NextResponse.json({ 
+        error: "A live class is already scheduled for this course at the same time" 
+      }, { status: 409 })
     }
 
     // Generate unique stream credentials for this live class
@@ -36,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const liveClass = new LiveClass({
       ...validatedData,
-      teacher: teacher._id,
+      teacher: session.user.id,
       streamId: streamCredentials.streamId,
       streamKey: streamCredentials.streamKey,
       chatSecret: streamCredentials.chatSecret,
@@ -45,9 +59,48 @@ export async function POST(request: NextRequest) {
     await liveClass.save()
 
     const populatedLiveClass = await LiveClass.findById(liveClass._id)
-      .populate('course', 'title')
+      .populate('course', 'title description')
       .populate('teacher', 'name email')
       .lean()
+
+    // Serialize the response
+    const serializedLiveClass = {
+      _id: populatedLiveClass._id.toString(),
+      course: {
+        _id: populatedLiveClass.course._id.toString(),
+        title: populatedLiveClass.course.title,
+        description: populatedLiveClass.course.description
+      },
+      teacher: {
+        _id: populatedLiveClass.teacher._id.toString(),
+        name: populatedLiveClass.teacher.name,
+        email: populatedLiveClass.teacher.email
+      },
+      title: populatedLiveClass.title,
+      description: populatedLiveClass.description,
+      scheduledDate: populatedLiveClass.scheduledDate,
+      duration: populatedLiveClass.duration,
+      isLive: populatedLiveClass.isLive,
+      status: populatedLiveClass.status,
+      streamId: populatedLiveClass.streamId,
+      attendees: populatedLiveClass.attendees?.map((id: any) => id.toString()) || [],
+      createdAt: populatedLiveClass.createdAt,
+      updatedAt: populatedLiveClass.updatedAt
+    }
+
+    return NextResponse.json({
+      message: "Live class scheduled successfully",
+      liveClass: serializedLiveClass
+    })
+
+  } catch (error) {
+    console.error("Error creating live class:", error)
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json({ error: "Invalid input data", details: error }, { status: 400 })
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
 
     return NextResponse.json({
       message: "Live class scheduled successfully",
@@ -78,20 +131,21 @@ export async function GET(request: NextRequest) {
     const query: Record<string, unknown> = {}
 
     if (session.user.role === "teacher") {
-      const teacher = await Teacher.findOne({ email: session.user.email })
-      if (!teacher) {
-        return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
-      }
-      query.teacher = teacher._id
+      // For teachers, find by their user ID directly
+      query.teacher = session.user.id
     } else if (session.user.role === "student") {
-      const student = await Student.findOne({ email: session.user.email })
+      const student = await Student.findById(session.user.id)
       if (!student) {
         return NextResponse.json({ error: "Student not found" }, { status: 404 })
       }
       
       // Only show live classes for courses the student is enrolled in
-      const enrolledCourses = student.enrolledCourses
-      query.course = { $in: enrolledCourses }
+      if (student.purchasedCourses && student.purchasedCourses.length > 0) {
+        query.course = { $in: student.purchasedCourses }
+      } else {
+        // No enrolled courses, return empty array
+        return NextResponse.json({ liveClasses: [] })
+      }
     }
 
     if (courseId) {
@@ -99,12 +153,39 @@ export async function GET(request: NextRequest) {
     }
 
     const liveClasses = await LiveClass.find(query)
-      .populate('course', 'title')
+      .populate('course', 'title description')
       .populate('teacher', 'name email')
       .sort({ scheduledDate: -1 })
       .lean()
 
-    return NextResponse.json({ liveClasses })
+    // Serialize the data properly
+    const serializedLiveClasses = liveClasses.map(liveClass => ({
+      _id: liveClass._id.toString(),
+      course: {
+        _id: liveClass.course._id.toString(),
+        title: liveClass.course.title,
+        description: liveClass.course.description
+      },
+      teacher: {
+        _id: liveClass.teacher._id.toString(),
+        name: liveClass.teacher.name,
+        email: liveClass.teacher.email
+      },
+      title: liveClass.title,
+      description: liveClass.description,
+      scheduledDate: liveClass.scheduledDate,
+      duration: liveClass.duration,
+      isLive: liveClass.isLive,
+      status: liveClass.status,
+      streamId: liveClass.streamId,
+      attendees: liveClass.attendees?.map((id: any) => id.toString()) || [],
+      startedAt: liveClass.startedAt,
+      endedAt: liveClass.endedAt,
+      createdAt: liveClass.createdAt,
+      updatedAt: liveClass.updatedAt
+    }))
+
+    return NextResponse.json({ liveClasses: serializedLiveClasses })
 
   } catch (error) {
     console.error("Error fetching live classes:", error)

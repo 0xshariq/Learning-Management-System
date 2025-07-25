@@ -54,10 +54,17 @@ export default function TeacherLiveClassDashboard() {
 
   const fetchLiveClasses = async () => {
     try {
-      const response = await fetch('/api/live-classes')
+      const response = await fetch('/api/teacher/live-classes')
       if (response.ok) {
         const data = await response.json()
-        setLiveClasses(data.liveClasses)
+        setLiveClasses(data.liveClasses || [])
+      } else {
+        console.error('Failed to fetch live classes')
+        toast({
+          title: "Error",
+          description: "Failed to fetch live classes",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error fetching live classes:', error)

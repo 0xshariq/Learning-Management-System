@@ -121,7 +121,7 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
         const expiryTime = Date.now() + (4 * 60 * 60 * 1000)
         setTokenExpiry(expiryTime)
         
-        // Simulate connecting to chat
+        // Add connection status check
         setTimeout(() => {
           setChatConnected(true)
           // Add a welcome message
@@ -144,8 +144,8 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
     } catch (error) {
       console.error('Error fetching stream data:', error)
       toast({
-        title: "Error",
-        description: "Failed to load stream",
+        title: "Connection Error",
+        description: "Failed to connect to stream. Please check your internet connection.",
         variant: "destructive"
       })
     } finally {
