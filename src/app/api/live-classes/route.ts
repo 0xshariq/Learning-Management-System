@@ -6,7 +6,15 @@ import { LiveClass, liveClassValidationSchema } from "@/models/live-class"
 import { Course } from "@/models/course"
 import { Student } from "@/models/student"
 import { Teacher } from "@/models/teacher"
-import { generateStreamCredentials } from "@/lib/zenstream"
+import { zenStreamService } from "@/lib/zenstream"
+import { videoStreamingService } from "@/lib/video-streaming"
+import { rateLimit } from "@/lib/utils"
+
+// Rate limiting configuration
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500,
+})
 
 // Helper function to serialize live class data
 function serializeLiveClass(liveClass: any) {
@@ -15,12 +23,15 @@ function serializeLiveClass(liveClass: any) {
     course: liveClass.course ? {
       _id: liveClass.course._id.toString(),
       title: liveClass.course.title,
-      description: liveClass.course.description
+      description: liveClass.course.description,
+      thumbnail: liveClass.course.thumbnail,
+      price: liveClass.course.price
     } : null,
     teacher: liveClass.teacher ? {
       _id: liveClass.teacher._id.toString(),
       name: liveClass.teacher.name,
-      email: liveClass.teacher.email
+      email: liveClass.teacher.email,
+      avatar: liveClass.teacher.avatar
     } : null,
     title: liveClass.title,
     description: liveClass.description,
@@ -33,7 +44,13 @@ function serializeLiveClass(liveClass: any) {
     startedAt: liveClass.startedAt,
     endedAt: liveClass.endedAt,
     createdAt: liveClass.createdAt,
-    updatedAt: liveClass.updatedAt
+    updatedAt: liveClass.updatedAt,
+    analytics: {
+      totalViewers: liveClass.analytics?.totalViewers || 0,
+      peakViewers: liveClass.analytics?.peakViewers || 0,
+      averageWatchTime: liveClass.analytics?.averageWatchTime || 0,
+      chatMessages: liveClass.analytics?.chatMessages || 0
+    }
   }
 }
 
@@ -64,8 +81,34 @@ async function validateTeacherAccess(teacherId: string, liveClassId?: string) {
   return { teacher }
 }
 
+// Helper function to validate student enrollment
+async function validateStudentEnrollment(studentId: string, courseId: string) {
+  const student = await Student.findById(studentId).lean()
+  if (!student) {
+    throw new Error("Student not found")
+  }
+
+  if (student.isBlocked) {
+    throw new Error("Student account is blocked")
+  }
+
+  const isEnrolled = student.purchasedCourses?.includes(courseId)
+  if (!isEnrolled) {
+    throw new Error("You are not enrolled in this course")
+  }
+
+  return student
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || 'unknown'
+    const { success } = await limiter.limit(ip)
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user || session.user.role !== "teacher") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -104,7 +147,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique stream credentials for this live class
-    const streamCredentials = generateStreamCredentials()
+    const streamCredentials = zenStreamService.generateStreamCredentials({
+      maxViewers: 100,
+      recordingEnabled: true,
+      chatEnabled: true,
+      adaptiveBitrate: true,
+      lowLatency: true
+    })
+
+    // Initialize analytics
+    const analytics = {
+      totalViewers: 0,
+      peakViewers: 0,
+      averageWatchTime: 0,
+      chatMessages: 0,
+      qualitySwitches: 0,
+      bufferingEvents: 0,
+      errors: 0
+    }
 
     const liveClass = new LiveClass({
       ...validatedData,
@@ -112,13 +172,14 @@ export async function POST(request: NextRequest) {
       streamId: streamCredentials.streamId,
       streamKey: streamCredentials.streamKey,
       chatSecret: streamCredentials.chatSecret,
+      analytics
     })
 
     await liveClass.save()
 
     const populatedLiveClass = await LiveClass.findById(liveClass._id)
-      .populate('course', 'title description')
-      .populate('teacher', 'name email')
+      .populate('course', 'title description thumbnail price')
+      .populate('teacher', 'name email avatar')
       .lean()
 
     if (!populatedLiveClass) {
@@ -162,6 +223,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const courseId = searchParams.get('courseId')
+    const status = searchParams.get('status')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const page = parseInt(searchParams.get('page') || '1')
+    const sortBy = searchParams.get('sortBy') || 'scheduledDate'
+    const sortOrder = searchParams.get('sortOrder') || 'desc'
 
     const query: Record<string, unknown> = {}
 
@@ -180,7 +246,15 @@ export async function GET(request: NextRequest) {
         query.course = { $in: student.purchasedCourses }
       } else {
         // No enrolled courses, return empty array
-        return NextResponse.json({ liveClasses: [] })
+        return NextResponse.json({ 
+          liveClasses: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0
+          }
+        })
       }
     } else if (session.user.role === "admin") {
       // Admin can see all live classes
@@ -193,14 +267,32 @@ export async function GET(request: NextRequest) {
       query.course = courseId
     }
 
+    if (status) {
+      query.status = status
+    }
+
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination
+    const total = await LiveClass.countDocuments(query)
+
     const liveClasses = await LiveClass.find(query)
-      .populate('course', 'title description')
-      .populate('teacher', 'name email')
-      .sort({ scheduledDate: -1 })
+      .populate('course', 'title description thumbnail price')
+      .populate('teacher', 'name email avatar')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .skip(skip)
+      .limit(limit)
       .lean()
 
     return NextResponse.json({ 
-      liveClasses: liveClasses.map(serializeLiveClass)
+      liveClasses: liveClasses.map(serializeLiveClass),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
     })
 
   } catch (error) {
@@ -278,8 +370,8 @@ export async function PUT(request: NextRequest) {
       { ...updateData, updatedAt: new Date() },
       { new: true }
     )
-      .populate('course', 'title description')
-      .populate('teacher', 'name email')
+      .populate('course', 'title description thumbnail price')
+      .populate('teacher', 'name email avatar')
       .lean()
 
     if (!updatedLiveClass) {
